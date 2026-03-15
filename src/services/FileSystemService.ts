@@ -22,9 +22,6 @@ class FileSystemService {
       multiple: false,
     });
     
-    // Request readwrite permission immediately
-    await handle.requestPermission({ mode: 'readwrite' });
-    
     const file = await handle.getFile();
     const content = await file.text();
     

@@ -37,8 +37,6 @@ export function useFile() {
         if (savedPath) setFilePath(savedPath);
 
         if (savedHandle) {
-          // Keep the handle even if we don't have permission yet
-          // We will request permission when the user actually tries to save
           setHandle(savedHandle);
           setFileName(savedHandle.name);
         }
@@ -68,7 +66,8 @@ export function useFile() {
   }, [autosaveEnabled]);
 
   const updateContent = useCallback((newContent: string) => {
-    if (newContent !== content) {
+    // Trim to avoid "dirty" state on minor formatting differences after load
+    if (newContent.trim() !== content.trim()) {
       setContent(newContent);
       setIsDirty(true);
     }
@@ -83,7 +82,6 @@ export function useFile() {
       setFilePath(path || name);
       setIsDirty(false);
       setLastExternalUpdate(Date.now());
-      setAutosaveEnabled(true);
     } catch (e) {
       console.error('Open file cancelled or failed:', e);
     }
@@ -105,15 +103,18 @@ export function useFile() {
     }
   }, []);
 
-  const saveFile = useCallback(async () => {
+  const saveFile = useCallback(async (isAuto = false) => {
     if (!isDirty || isSaving) return;
     try {
       setIsSaving(true);
       if (handle) {
-        // Check if we still have permission (e.g. after a reload)
         const options = { mode: 'readwrite' as const };
         if ((await handle.queryPermission(options)) !== 'granted') {
-          // If not, request it specifically for this file
+          // If auto-saving and no permission, just stop to avoid annoying the user
+          if (isAuto) {
+            setIsSaving(false);
+            return;
+          }
           if ((await handle.requestPermission(options)) !== 'granted') {
             throw new Error('Permission denied');
           }
@@ -121,15 +122,13 @@ export function useFile() {
         
         await fileSystemService.writeFile(handle, content);
         setIsDirty(false);
-        setAutosaveEnabled(true);
-      } else {
+      } else if (!isAuto) {
+        // Only trigger "Save As" picker if the user explicitly clicked Save
         await saveFileAs(content, fileName);
       }
     } catch (e) {
       console.error('Save file failed:', e);
-      // If saving to the existing handle failed (e.g. permission denied or handle invalid),
-      // we fall back to Save As to ensure data isn't lost.
-      if (handle) await saveFileAs(content, fileName);
+      if (!isAuto) await saveFileAs(content, fileName);
     } finally {
       setIsSaving(false);
     }
@@ -152,7 +151,7 @@ export function useFile() {
   useEffect(() => {
     if (autosaveEnabled && isDirty && handle && !isSaving) {
       const timer = setTimeout(() => {
-        saveFile();
+        saveFile(true); // Pass isAuto = true
       }, 2000);
       return () => clearTimeout(timer);
     }
@@ -170,7 +169,7 @@ export function useFile() {
     setAutosaveEnabled,
     updateContent,
     openFile,
-    saveFile,
+    saveFile: () => saveFile(false),
     saveFileAs: () => saveFileAs(content, fileName),
     newFile,
   };

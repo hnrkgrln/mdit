@@ -20,67 +20,82 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // 1. CLEAR the container immediately
     const container = editorRef.current;
-    container.innerHTML = '';
+    let destroyed = false;
+    let crepeInstance: Crepe | null = null;
 
-    // 2. Create the instance
-    const crepe = new Crepe({
-      root: container,
-      defaultValue: content,
-      featureConfigs: {
-        [Crepe.Feature.Placeholder]: {
-          text: '...',
-        },
-        'code-mirror': {
-          onCopy: () => {
-            const button = document.activeElement as HTMLElement;
-            if (button && (button.classList.contains('copy-button') || button.closest('.copy-button'))) {
-              const target = button.classList.contains('copy-button') ? button : button.closest('.copy-button') as HTMLElement;
-              if (target) {
-                const originalText = target.innerText;
-                target.innerText = 'Copied!';
-                target.classList.add('copied');
-                setTimeout(() => {
-                  target.innerText = originalText;
-                  target.classList.remove('copied');
-                }, 2000);
+    const init = async () => {
+      container.innerHTML = '';
+
+      crepeInstance = new Crepe({
+        root: container,
+        defaultValue: content,
+        featureConfigs: {
+          [Crepe.Feature.Placeholder]: {
+            text: '...',
+          },
+          'code-mirror': {
+            onCopy: () => {
+              const button = document.activeElement as HTMLElement;
+              if (button && (button.classList.contains('copy-button') || button.closest('.copy-button'))) {
+                const target = button.classList.contains('copy-button') ? button : button.closest('.copy-button') as HTMLElement;
+                if (target) {
+                  const originalText = target.innerText;
+                  target.innerText = 'Copied!';
+                  target.classList.add('copied');
+                  setTimeout(() => {
+                    if (target) {
+                      target.innerText = originalText;
+                      target.classList.remove('copied');
+                    }
+                  }, 2000);
+                }
               }
             }
           }
-        }
-      },
-    });
-
-    crepe.on((listener) => {
-      listener.markdownUpdated((_, markdown) => {
-        if (markdown !== lastMarkdownRef.current) {
-          lastMarkdownRef.current = markdown;
-          onChange(markdown);
-        }
+        },
       });
-    });
 
-    crepe.create().then(() => {
-      crepeRef.current = crepe;
-    });
+      crepeInstance.on((listener) => {
+        listener.markdownUpdated((_, markdown) => {
+          if (markdown !== lastMarkdownRef.current) {
+            lastMarkdownRef.current = markdown;
+            onChange(markdown);
+          }
+        });
+      });
 
-    // 3. CLEANUP: Ensure destruction and manual DOM clearing
+      await crepeInstance.create();
+
+      if (destroyed) {
+        crepeInstance.destroy();
+      } else {
+        crepeRef.current = crepeInstance;
+      }
+    };
+
+    init();
+
     return () => {
+      destroyed = true;
       if (crepeRef.current) {
         crepeRef.current.destroy();
         crepeRef.current = null;
+      } else if (crepeInstance) {
+        crepeInstance.destroy();
       }
       container.innerHTML = '';
     };
-  }, []); // Strictly once on mount
+  }, []);
 
-  // Sync content only on external triggers (File Open, New File)
+  // Sync content only when forceSync changes (external triggers)
+  // We explicitly remove 'content' from dependencies to prevent typing loops
   useEffect(() => {
     if (!crepeRef.current || !forceSync) return;
     
     const crepe = crepeRef.current;
     const timer = setTimeout(() => {
+      if (!crepe.editor) return;
       crepe.editor.action((ctx) => {
         lastMarkdownRef.current = content;
         replaceAll(content)(ctx);
