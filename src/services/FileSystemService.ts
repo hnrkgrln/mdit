@@ -26,18 +26,42 @@ class FileSystemService {
    * Opens a file picker and returns the file handle and content.
    */
   async openFile(): Promise<FileData> {
-    const [handle] = await window.showOpenFilePicker({
-      ...this.pickerOptions,
-      multiple: false,
-    });
-    
-    const file = await handle.getFile();
-    const content = await file.text();
-    
-    // Attempt to get the path (some browsers might support this via proprietary APIs or as a hint)
-    // Most standard implementations won't give the full system path for security reasons,
-    // but we can at least provide the name or any available hint.
-    return { handle, content, name: file.name, path: (file as any).webkitRelativePath || file.name };
+    if (this.isSupported()) {
+      const [handle] = await window.showOpenFilePicker({
+        ...this.pickerOptions,
+        multiple: false,
+      });
+      
+      const file = await handle.getFile();
+      const content = await file.text();
+      
+      return { handle, content, name: file.name, path: (file as any).webkitRelativePath || file.name };
+    } else {
+      // Fallback for browsers/contexts that don't support the File System Access API
+      return new Promise((resolve, reject) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.md,.markdown,text/markdown';
+        
+        input.onchange = async (e: Event) => {
+          const target = e.target as HTMLInputElement;
+          const file = target.files?.[0];
+          if (!file) {
+            reject(new Error('No file selected'));
+            return;
+          }
+          const content = await file.text();
+          resolve({ handle: null, content, name: file.name, path: file.name });
+        };
+        
+        // Handle cancellation (partially works in modern browsers)
+        input.oncancel = () => {
+          reject(new Error('File selection cancelled'));
+        };
+        
+        input.click();
+      });
+    }
   }
 
   /**
@@ -49,18 +73,40 @@ class FileSystemService {
       ? suggestedName
       : `${suggestedName}.md`;
 
-    const handle = await window.showSaveFilePicker({
-      ...this.pickerOptions,
-      suggestedName: finalName,
-    });
-    await this.writeFile(handle, content);
-    return { handle, content, name: handle.name, path: handle.name };
+    if (this.isSupported()) {
+      const handle = await window.showSaveFilePicker({
+        ...this.pickerOptions,
+        suggestedName: finalName,
+      });
+      await this.writeFile(handle, content);
+      return { handle, content, name: handle.name, path: handle.name };
+    } else {
+      // Fallback: trigger a traditional file download
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = finalName;
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      URL.revokeObjectURL(url);
+      
+      return { handle: null, content, name: finalName, path: finalName };
+    }
   }
 
   /**
    * Writes content to an existing file handle.
    */
   async writeFile(handle: FileSystemFileHandle, content: string): Promise<void> {
+    if (!this.isSupported() || !handle) {
+      throw new Error('File System API not supported or invalid handle');
+    }
     const writable = await handle.createWritable();
     await writable.write(content);
     await writable.close();
@@ -70,7 +116,7 @@ class FileSystemService {
    * Check if the File System Access API is supported.
    */
   isSupported(): boolean {
-    return 'showOpenFilePicker' in window;
+    return 'showOpenFilePicker' in window && 'showSaveFilePicker' in window;
   }
 }
 
