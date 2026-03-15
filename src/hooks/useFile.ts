@@ -16,12 +16,22 @@ export function useFile() {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasWritePermission, setHasWritePermission] = useState(false);
   const [lastExternalUpdate, setLastExternalUpdate] = useState<number>(0);
   
   const [autosaveEnabled, setAutosaveEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem(AUTOSAVE_KEY);
     return saved === null ? true : saved === 'true';
   });
+
+  // Check permission utility
+  const checkPermission = async (fileHandle: FileSystemFileHandle) => {
+    const options = { mode: 'readwrite' as const };
+    const permission = await fileHandle.queryPermission(options);
+    const hasPerm = permission === 'granted';
+    setHasWritePermission(hasPerm);
+    return hasPerm;
+  };
 
   // Initialize from IndexedDB
   useEffect(() => {
@@ -39,6 +49,7 @@ export function useFile() {
         if (savedHandle) {
           setHandle(savedHandle);
           setFileName(savedHandle.name);
+          await checkPermission(savedHandle);
         }
         setLastExternalUpdate(Date.now());
       } catch (e) {
@@ -73,15 +84,20 @@ export function useFile() {
     }
   }, [content]);
 
+  const needsConfirmation = useCallback(() => {
+    return isDirty && !handle && content.trim() !== '';
+  }, [isDirty, handle, content]);
+
   const openFile = useCallback(async () => {
     try {
-      const { handle, content, name, path } = await fileSystemService.openFile();
-      setHandle(handle);
-      setContent(content);
+      const { handle: newHandle, content: newContent, name, path } = await fileSystemService.openFile();
+      setHandle(newHandle);
+      setContent(newContent);
       setFileName(name);
       setFilePath(path || name);
       setIsDirty(false);
       setLastExternalUpdate(Date.now());
+      await checkPermission(newHandle); // Check and set permission state
     } catch (e) {
       console.error('Open file cancelled or failed:', e);
     }
@@ -90,12 +106,13 @@ export function useFile() {
   const saveFileAs = useCallback(async (contentToSave: string, currentName: string) => {
     try {
       setIsSaving(true);
-      const { handle, name, path } = await fileSystemService.saveFileAs(contentToSave, currentName);
-      setHandle(handle);
+      const { handle: newHandle, name, path } = await fileSystemService.saveFileAs(contentToSave, currentName);
+      setHandle(newHandle);
       setFileName(name);
       setFilePath(path || name);
       setIsDirty(false);
       setAutosaveEnabled(true);
+      await checkPermission(newHandle); // Check and set permission state
     } catch (e) {
       console.error('Save as cancelled or failed:', e);
     } finally {
@@ -122,6 +139,7 @@ export function useFile() {
         
         await fileSystemService.writeFile(handle, content);
         setIsDirty(false);
+        setHasWritePermission(true); // Since it succeeded, we have permission
       } else if (!isAuto) {
         // Only trigger "Save As" picker if the user explicitly clicked Save
         await saveFileAs(content, fileName);
@@ -149,13 +167,14 @@ export function useFile() {
 
   // Debounced auto-save to the actual file
   useEffect(() => {
+    // Only trigger if enabled, file exists, has changes, and isn't currently saving
     if (autosaveEnabled && isDirty && handle && !isSaving) {
       const timer = setTimeout(() => {
         saveFile(true); // Pass isAuto = true
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [content, handle, isDirty, isSaving, saveFile, autosaveEnabled]);
+  }, [autosaveEnabled, isDirty, handle, isSaving, saveFile, content]);
 
   return {
     content,
@@ -164,9 +183,11 @@ export function useFile() {
     isDirty,
     isSaving,
     isLoading,
+    hasWritePermission,
     lastExternalUpdate,
     autosaveEnabled,
     setAutosaveEnabled,
+    needsConfirmation,
     updateContent,
     openFile,
     saveFile: () => saveFile(false),

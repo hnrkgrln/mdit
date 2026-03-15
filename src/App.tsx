@@ -3,12 +3,16 @@ import { useFile } from './hooks/useFile';
 import { MilkdownEditor } from './components/MilkdownEditor';
 import { SourceEditor } from './components/SourceEditor';
 import { MarkdownHelp } from './components/MarkdownHelp';
+import { ConfirmModal } from './components/ConfirmModal';
 import './styles/App.css';
 
 const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [isSourceMode, setIsSourceMode] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState<string>('');
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('mdit_theme') as 'light' | 'dark') || 'dark';
   });
@@ -20,9 +24,11 @@ const App: React.FC = () => {
     isDirty,
     isSaving,
     isLoading,
+    hasWritePermission,
     lastExternalUpdate,
     autosaveEnabled,
     setAutosaveEnabled,
+    needsConfirmation,
     updateContent,
     openFile,
     saveFile,
@@ -52,9 +58,37 @@ const App: React.FC = () => {
     setIsMenuOpen(prev => !prev);
   };
 
+  const handleNewFile = () => {
+    if (needsConfirmation()) {
+      setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and start a new file?");
+      setConfirmAction(() => () => {
+        newFile();
+        setConfirmAction(null);
+      });
+    } else {
+      newFile();
+    }
+    setIsMenuOpen(false);
+  };
+
+  const handleOpenFile = () => {
+    if (needsConfirmation()) {
+      setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and open a different file?");
+      setConfirmAction(() => () => {
+        openFile();
+        setConfirmAction(null);
+      });
+    } else {
+      openFile();
+    }
+    setIsMenuOpen(false);
+  };
+
   // Keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (confirmAction) return; // Disable shortcuts while modal is open
+
       const isMod = e.ctrlKey || e.metaKey;
 
       if (isMod && e.key === 's') {
@@ -62,10 +96,10 @@ const App: React.FC = () => {
         saveFile();
       } else if (isMod && e.key === 'o') {
         e.preventDefault();
-        openFile();
+        handleOpenFile();
       } else if (isMod && e.key === 'n') {
         e.preventDefault();
-        newFile();
+        handleNewFile();
       } else if (isMod && e.key === 'h') {
         e.preventDefault();
         setShowHelp(prev => !prev);
@@ -86,12 +120,12 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile, openFile, newFile, setAutosaveEnabled]);
+  }, [saveFile, openFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction]);
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <div className="file-info">
+        <div className="file-info" title={filePath || fileName}>
           <span className="file-name">{fileName}</span>
           <div className={`dirty-indicator ${isDirty ? 'visible' : ''}`} title="Unsaved changes" />
         </div>
@@ -105,8 +139,8 @@ const App: React.FC = () => {
         </button>
 
         <div className={`actions ${isMenuOpen ? 'menu-open' : ''}`}>
-          <button onClick={() => { newFile(); setIsMenuOpen(false); }}>New</button>
-          <button onClick={() => { openFile(); setIsMenuOpen(false); }}>Open</button>
+          <button onClick={handleNewFile}>New</button>
+          <button onClick={handleOpenFile}>Open</button>
           <button 
             onClick={() => { saveFile(); setIsMenuOpen(false); }} 
             className={!isDirty ? 'saved' : ''}
@@ -116,22 +150,21 @@ const App: React.FC = () => {
           </button>
           <button onClick={() => { saveFileAs(); setIsMenuOpen(false); }}>Save As</button>
           
-          <button 
-            onClick={toggleAutosave} 
-            className={autosaveEnabled && filePath ? 'active' : ''}
+          <button
+            onClick={toggleAutosave}
+            className={autosaveEnabled && filePath && hasWritePermission ? 'active' : ''}
+            style={autosaveEnabled && filePath && !hasWritePermission ? { borderColor: 'var(--c-orange)', color: 'var(--c-orange)' } : {}}
             title="Toggle Auto-save (Ctrl+A)"
           >
-            Auto-save: {autosaveEnabled && filePath ? 'ON' : 'OFF'}
+            {autosaveEnabled && filePath && !hasWritePermission ? 'Auto-save: Needs Permission (Click Save)' : `Auto-save: ${autosaveEnabled && filePath ? 'ON' : 'OFF'}`}
           </button>
-
-          <button 
+          <button
             onClick={() => { toggleSourceMode(); setIsMenuOpen(false); }}
             className={isSourceMode ? 'active' : ''}
             title="Toggle Source Mode (Ctrl+M)"
           >
-            {isSourceMode ? 'WYSIWYG' : 'Source'}
+            {isSourceMode ? 'Plain text' : 'Markdown'}
           </button>
-
           <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }}>Help</button>
           <button className="theme-toggle" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+L)">
             {theme === 'light' ? '🌑' : '☀️'}
@@ -154,6 +187,14 @@ const App: React.FC = () => {
       </main>
 
       {showHelp && <MarkdownHelp onClose={() => setShowHelp(false)} />}
+      
+      {confirmAction && (
+        <ConfirmModal 
+          message={confirmMessage} 
+          onConfirm={confirmAction} 
+          onCancel={() => setConfirmAction(null)} 
+        />
+      )}
     </div>
   );
 };

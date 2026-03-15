@@ -58,9 +58,12 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
 
       crepeInstance.on((listener) => {
         listener.markdownUpdated((_, markdown) => {
-          if (markdown !== lastMarkdownRef.current) {
-            lastMarkdownRef.current = markdown;
-            onChange(markdown);
+          // Clean up any rogue <br> tags inserted by the editor for cleaner source markdown
+          const cleanMarkdown = markdown.replace(/<br\s*\/?>/gi, '\n');
+          
+          if (cleanMarkdown !== lastMarkdownRef.current) {
+            lastMarkdownRef.current = cleanMarkdown;
+            onChange(cleanMarkdown);
           }
         });
       });
