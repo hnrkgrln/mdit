@@ -11,7 +11,16 @@ export interface FileData {
 }
 
 class FileSystemService {
-  // ... (rest of class remains similar)
+  private readonly pickerOptions = {
+    types: [
+      {
+        description: 'Markdown Files',
+        accept: {
+          'text/markdown': ['.md', '.markdown'],
+        },
+      },
+    ],
+  };
 
   /**
    * Opens a file picker and returns the file handle and content.

@@ -25,7 +25,11 @@ export function useFile() {
   });
 
   // Check permission utility
-  const checkPermission = async (fileHandle: FileSystemFileHandle) => {
+  const checkPermission = async (fileHandle: FileSystemFileHandle | null) => {
+    if (!fileHandle) {
+      setHasWritePermission(false);
+      return false;
+    }
     const options = { mode: 'readwrite' as const };
     const permission = await fileHandle.queryPermission(options);
     const hasPerm = permission === 'granted';
