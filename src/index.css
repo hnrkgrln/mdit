@@ -1,0 +1,21 @@
+/* Reset all default Vite styles that interfere with full-screen layout */
+:root {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  text-align: left;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}

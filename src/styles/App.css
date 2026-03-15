@@ -1,0 +1,416 @@
+:root {
+  /* Solarized Palette Colors */
+  --sol-base03: #002b36;
+  --sol-base02: #073642;
+  --sol-base01: #586e75;
+  --sol-base00: #657b83;
+  --sol-base0: #839496;
+  --sol-base1: #93a1a1;
+  --sol-base2: #eee8d5;
+  --sol-base3: #fdf6e3;
+  --sol-yellow: #b58900;
+  --sol-orange: #cb4b16;
+  --sol-red: #dc322f;
+  --sol-magenta: #d33682;
+  --sol-violet: #6c71c4;
+  --sol-blue: #268bd2;
+  --sol-cyan: #2aa198;
+  --sol-green: #859900;
+
+  --header-height: 80px;
+}
+
+/* Solarized Light Theme */
+[data-theme='light'] {
+  --bg-color: var(--sol-base3);
+  --text-color: var(--sol-base01);
+  --accent-color: var(--sol-blue);
+  --header-bg: var(--sol-base2);
+  --editor-bg: var(--sol-base3);
+  --border-color: var(--sol-base1);
+  --button-bg: var(--sol-base2);
+  --button-text: var(--sol-base01);
+  --indicator-red: var(--sol-red);
+  --placeholder-color: var(--sol-base00);
+  --code-bg: var(--sol-base2);
+}
+
+/* Solarized Dark Theme */
+[data-theme='dark'] {
+  --bg-color: var(--sol-base03);
+  --text-color: var(--sol-base0);
+  --accent-color: var(--sol-blue);
+  --header-bg: var(--sol-base02);
+  --editor-bg: var(--sol-base03);
+  --border-color: var(--sol-base01);
+  --button-bg: var(--sol-base02);
+  --button-text: var(--sol-base0);
+  --indicator-red: var(--sol-red);
+  --placeholder-color: var(--sol-base2);
+  --code-bg: var(--sol-base02);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+  transition: background-color 0.3s, color 0.3s;
+  font-size: 16px;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.app-header {
+  height: var(--header-height);
+  background-color: var(--header-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  border-bottom: 2px solid var(--border-color);
+  flex-shrink: 0;
+  z-index: 1000;
+  width: 100%;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.file-name {
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--accent-color);
+}
+
+.dirty-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--indicator-red);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.dirty-indicator.visible {
+  opacity: 1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+  background-color: var(--editor-bg);
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.milkdown-wrapper,
+.source-editor-wrapper {
+  width: 100%;
+  max-width: 1400px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 40px 40px;
+  box-sizing: border-box;
+}
+
+.source-editor {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: var(--text-color);
+  border: none;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 20px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Force Milkdown and Crepe to use theme colors and fonts */
+.milkdown, 
+.milkdown .editor,
+.crepe-editor-container,
+.milkdown .crepe-frame,
+.milkdown .crepe-frame *,
+.ProseMirror {
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  box-shadow: none !important;
+  border: none !important;
+  --crepe-color-placeholder: var(--placeholder-color) !important;
+  --crepe-font-default: 'Share Tech Mono', monospace !important;
+  --crepe-font-code: 'Share Tech Mono', monospace !important;
+  --crepe-color-surface: var(--code-bg) !important;
+  --crepe-color-surface-low: var(--header-bg) !important;
+  --crepe-color-on-surface: var(--text-color) !important;
+  --crepe-color-on-surface-low: var(--text-color) !important;
+  --crepe-color-on-surface-variant: var(--text-color) !important;
+  --crepe-color-outline: var(--border-color) !important;
+  --crepe-color-primary: var(--sol-blue) !important;
+  --crepe-color-hover: rgba(38, 139, 210, 0.2) !important;
+  --crepe-color-selected: var(--sol-blue) !important;
+}
+
+/* Deep harmonization for code block UI components */
+.crepe-code-block, 
+.crepe-code-block *,
+.milkdown-code-block,
+.milkdown-code-block * {
+  --crepe-color-surface: var(--header-bg) !important;
+  --crepe-color-on-surface: var(--text-color) !important;
+  --crepe-color-outline: var(--border-color) !important;
+}
+
+/* Direct targeting of the picker and its children */
+.language-picker, .language-button, .copy-button {
+  background-color: var(--button-bg) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+  font-family: inherit !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Fix visual artifact between header and code gutter */
+.language-picker {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.milkdown-code-block .cm-gutters,
+.crepe .cm-gutters {
+  border-right: none !important;
+  background-color: transparent !important;
+}
+
+.milkdown-code-block > .header,
+.crepe .header {
+  border-bottom: 1px solid var(--border-color) !important;
+  margin-bottom: 0 !important;
+}
+
+.copy-button:hover {
+  border-color: var(--sol-blue) !important;
+  background: rgba(38, 139, 210, 0.1) !important;
+}
+
+/* Success feedback for copying */
+.copy-button.copied {
+  background-color: var(--sol-green) !important;
+  color: white !important;
+  border-color: var(--sol-green) !important;
+  min-width: 100px; /* Ensure button doesn't jump size when text changes */
+}
+
+.language-picker-item:hover, .language-picker-item[data-selected="true"] {
+  background-color: var(--sol-blue) !important;
+  color: white !important;
+}
+
+/* Ensure code blocks inside Shadow DOM use correct font size */
+[data-type="code_block"] {
+  --crepe-font-code: 'Share Tech Mono', monospace !important;
+  font-size: 10px !important;
+}
+
+/* Apply font to content but EXCLUDE icons and handles */
+.ProseMirror *:not(.ProseMirror-cursor):not(milkdown-icon):not(.milkdown-icon) {
+  font-family: 'Share Tech Mono', monospace !important;
+}
+
+/* Ensure icons use the correct font */
+milkdown-icon, .milkdown-icon, [class^="milkdown-icon"], .crepe-icon, .material-icons, .material-icons-outlined {
+  font-family: 'Material Icons Outlined' !important;
+}
+
+.ProseMirror {
+  font-size: 20px !important;
+  line-height: 1.6;
+  color: var(--text-color) !important;
+  min-height: 500px;
+  outline: none !important;
+  text-align: left !important;
+  caret-color: transparent;
+}
+
+/* HIGHLY VISIBLE BLOCK CURSOR */
+.ProseMirror .ProseMirror-cursor {
+  background-color: var(--accent-color) !important;
+  width: 1ch !important;
+  border: none !important;
+  visibility: visible !important;
+  opacity: 0.8 !important;
+  display: inline-block !important;
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  from, to { opacity: 0.8; }
+  50% { opacity: 0; }
+}
+
+/* Uniform Document Coloring */
+.milkdown h1, .milkdown h2, .milkdown h3, .milkdown blockquote, .milkdown p { 
+  color: var(--text-color) !important; 
+}
+
+.milkdown a {
+  color: var(--sol-blue) !important;
+  text-decoration: underline !important;
+}
+
+/* Structure and Code */
+.milkdown h1 { font-size: 36px; margin-bottom: 0.5em; }
+.milkdown h2 { font-size: 30px; margin-top: 1.5em; }
+.milkdown h3 { font-size: 24px; margin-top: 1.2em; }
+
+.milkdown blockquote {
+  border-left: 6px solid var(--border-color);
+  padding-left: 30px;
+  font-style: italic;
+  margin: 1.5em 0;
+}
+
+.milkdown code {
+  background: var(--code-bg) !important;
+  color: var(--sol-green) !important;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9em !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.milkdown pre,
+.milkdown .crepe-code-block,
+.milkdown [data-type="code_block"] {
+  background: var(--code-bg) !important;
+  padding: 20px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border-color) !important;
+  margin: 1.5em 0 !important;
+  width: 100% !important;
+}
+
+.milkdown pre code,
+.milkdown .crepe-code-block code,
+.milkdown [data-type="code_block"] code {
+  background: transparent !important;
+  border: none !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+  color: var(--sol-green) !important;
+  display: block !important;
+}
+
+/* Placeholder Contrast Fix - Forced Overrides */
+.milkdown .editor p:first-child.empty-node::before,
+.milkdown .editor p:first-child[data-placeholder]::before,
+.crepe p:first-child.empty-node::before,
+.milkdown .placeholder:first-child::before,
+.crepe .placeholder:first-child::before,
+[data-placeholder]::before {
+  color: var(--placeholder-color) !important;
+  opacity: 1 !important;
+  fill: var(--placeholder-color) !important;
+  -webkit-text-fill-color: var(--placeholder-color) !important;
+  content: attr(data-placeholder) !important;
+  visibility: visible !important;
+}
+
+/* Hide placeholder on subsequent empty lines */
+.milkdown .editor p:not(:first-child).empty-node::before,
+.crepe p:not(:first-child).empty-node::before {
+  display: none !important;
+}
+
+/* Override Crepe internal variable */
+:root {
+  --crepe-color-placeholder: var(--placeholder-color);
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .app-header { padding: 0 20px; }
+  .actions {
+    position: fixed; top: var(--header-height); left: 0; right: 0;
+    background: var(--header-bg); flex-direction: column; padding: 20px;
+    transform: translateY(-150%); transition: transform 0.3s; z-index: 999;
+  }
+  .actions.menu-open { transform: translateY(0); }
+  .editor-container { justify-content: flex-start; }
+  .milkdown-wrapper, .source-editor-wrapper { padding: 20px 0 !important; max-width: 100% !important; }
+  .ProseMirror, .source-editor { font-size: 18px !important; padding: 0 0 0 60px !important; }
+  .menu-toggle-btn { display: flex !important; }
+}
+
+.menu-toggle-btn {
+  display: none; background: var(--button-bg); min-width: 44px; padding: 0;
+  font-size: 24px; border: 1px solid var(--border-color); border-radius: 6px;
+  cursor: pointer; align-items: center; justify-content: center; height: 44px; color: var(--text-color);
+}
+
+button {
+  background: var(--button-bg); border: 1px solid var(--border-color);
+  color: var(--button-text); padding: 10px 20px; border-radius: 6px;
+  cursor: pointer; font-family: inherit; font-size: 16px; transition: all 0.2s ease;
+  display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-width: 80px;
+}
+
+button:hover { border-color: var(--sol-blue); background: rgba(38, 139, 210, 0.1); }
+button.active { background: var(--sol-blue); color: white; border-color: var(--sol-cyan); }
+button.saved { opacity: 0.6; border-style: dashed; }
+
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center;
+  z-index: 2000; backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--header-bg); color: var(--text-color); width: 90%; max-width: 800px;
+  border-radius: 12px; border: 2px solid var(--border-color); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); overflow: hidden;
+}
+
+.modal-header { padding: 20px 40px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+.close-btn { background: transparent; border: none; color: var(--text-color); font-size: 32px; cursor: pointer; }
+.modal-body { padding: 40px; max-height: 70vh; overflow-y: auto; }
+.help-table { width: 100%; font-size: 18px; }
+.help-table th, .help-table td { border-bottom: 1px solid var(--border-color); padding: 12px 8px; text-align: left; }
+
+.milkdown-wrapper::-webkit-scrollbar { width: 10px; }
+.milkdown-wrapper::-webkit-scrollbar-track { background: transparent; }
+.milkdown-wrapper::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 5px; }
+.milkdown-wrapper::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
