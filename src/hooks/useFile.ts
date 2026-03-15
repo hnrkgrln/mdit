@@ -106,7 +106,23 @@ export function useFile() {
   const saveFileAs = useCallback(async (contentToSave: string, currentName: string) => {
     try {
       setIsSaving(true);
-      const { handle: newHandle, name, path } = await fileSystemService.saveFileAs(contentToSave, currentName);
+      
+      let suggestedName = currentName;
+      if (currentName === 'Untitled') {
+        const firstLine = contentToSave.split('\n').find(line => line.trim().length > 0);
+        if (firstLine) {
+          suggestedName = firstLine
+            .replace(/^#+\s*/, '') // Remove leading markdown heading hashes
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/gi, '-') // Replace special chars and spaces with hyphens
+            .replace(/^-+|-+$/g, ''); // Trim leading/trailing hyphens
+            
+          if (!suggestedName) suggestedName = 'untitled';
+        }
+      }
+
+      const { handle: newHandle, name, path } = await fileSystemService.saveFileAs(contentToSave, suggestedName);
       setHandle(newHandle);
       setFileName(name);
       setFilePath(path || name);

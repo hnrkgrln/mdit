@@ -97,7 +97,7 @@ const App: React.FC = () => {
       } else if (isMod && e.key === 'o') {
         e.preventDefault();
         handleOpenFile();
-      } else if (isMod && e.key === 'n') {
+      } else if (e.altKey && e.key === 'n') { // Changed to Alt+N to avoid browser conflict
         e.preventDefault();
         handleNewFile();
       } else if (isMod && e.key === 'h') {
