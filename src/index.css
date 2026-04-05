@@ -19,3 +19,36 @@ body {
   padding: 0;
   overflow: hidden;
 }
+
+/* GLOBAL HIGH-VISIBILITY CURSOR STYLES */
+.ProseMirror-cursor, 
+.ProseMirror .ProseMirror-cursor {
+  background-color: #fabd2f !important;
+  width: 1.2ch !important;
+  height: 1.2em !important;
+  border: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 10000 !important;
+  box-shadow: none !important;
+  animation: cursor-blink 0.6s step-end infinite !important;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Fallback for when ProseMirror uses native caret */
+.ProseMirror,
+.source-editor {
+  caret-color: #fabd2f !important;
+  caret-shape: block !important;
+}
+
+/* Force standard textareas to use high contrast caret */
+textarea {
+  caret-color: #fabd2f !important;
+}

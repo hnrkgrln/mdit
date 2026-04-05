@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 interface MarkdownHelpProps {
   onClose: () => void;
@@ -26,7 +27,9 @@ export const MarkdownHelp: React.FC<MarkdownHelpProps> = ({ onClose }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Markdown Reference</h3>
-          <button className="close-btn" onClick={onClose}>&times;</button>
+          <button className="close-btn" onClick={onClose} title="Close Help">
+            <X size={20} />
+          </button>
         </div>
         <div className="modal-body">
           <h4 style={{ color: 'var(--nord9)', marginTop: '0', marginBottom: '10px' }}>Keyboard Shortcuts</h4>

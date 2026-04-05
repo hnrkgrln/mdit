@@ -3,9 +3,9 @@
   --gb-bg0: #282828;
   --gb-bg1: #3c3836;
   --gb-bg2: #504945;
-  --gb-fg: #ebdbb2;
-  --gb-gray: #928374;
-  --gb-red: #cc241d;
+  --gb-fg: #fbf1c7; /* Brightened from #ebdbb2 for max contrast */
+  --gb-gray: #a89984; /* Brightened from #928374 */
+  --gb-red: #fb4934;
   --gb-green: #98971a;
   --gb-yellow: #d79921;
   --gb-blue: #458588;
@@ -17,14 +17,14 @@
   --gb-light-bg0: #fbf1c7;
   --gb-light-bg1: #ebdbb2;
   --gb-light-bg2: #d5c4a1;
-  --gb-light-fg: #3c3836;
-  --gb-light-gray: #7c6f64;
+  --gb-light-fg: #282828; /* Darkened from #3c3836 */
+  --gb-light-gray: #504945; /* Darkened from #7c6f64 */
   --gb-light-red: #9d0006;
-  --gb-light-green: #79740e;
+  --gb-light-green: #4e4e00; /* Darkened from #79740e */
   --gb-light-yellow: #b57614;
   --gb-light-blue: #076678;
   --gb-light-purple: #8f3f71;
-  --gb-light-aqua: #427b58;
+  --gb-light-aqua: #076678; /* Using darker blue-green for contrast */
   --gb-light-orange: #af3a03;
 
   --header-height: 80px;
@@ -42,7 +42,8 @@
   --button-text: var(--gb-light-fg);
   --indicator-red: var(--gb-light-red);
   --placeholder-color: var(--gb-light-gray);
-  --code-bg: var(--gb-light-bg1);
+  --code-bg: var(--gb-light-bg0); /* Lightest theme standard color */
+  --code-border: 1px solid var(--border-color);
   /* Component Colors */
   --c-yellow: var(--gb-light-yellow);
   --c-orange: var(--gb-light-orange);
@@ -66,7 +67,9 @@
   --indicator-red: var(--gb-red);
   --placeholder-color: var(--gb-gray);
   --code-bg: var(--gb-bg1);
+  --code-border: none;
   /* Component Colors */
+
   --c-yellow: var(--gb-yellow);
   --c-orange: var(--gb-orange);
   --c-purple: var(--gb-purple);
@@ -215,9 +218,37 @@ body, html {
 .crepe-code-block *,
 .milkdown-code-block,
 .milkdown-code-block * {
-  --crepe-color-surface: var(--header-bg) !important;
+  --crepe-color-surface: var(--code-bg) !important;
+  --crepe-color-surface-low: var(--code-bg) !important;
   --crepe-color-on-surface: var(--text-color) !important;
   --crepe-color-outline: var(--border-color) !important;
+}
+
+/* Ensure high contrast for menus and toolbars */
+.milkdown-toolbar,
+.milkdown-slash-menu,
+.milkdown-block-handle,
+.milkdown-link-preview,
+.milkdown-link-edit,
+.milkdown .milkdown-toolbar,
+.milkdown .milkdown-slash-menu {
+  --crepe-color-surface: var(--header-bg) !important;
+  --crepe-color-on-surface: var(--text-color) !important;
+  --crepe-color-outline: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+  z-index: 10000 !important;
+}
+
+/* Force icons in menus to use high-contrast color */
+.milkdown svg,
+.milkdown-toolbar svg,
+.milkdown-slash-menu svg,
+.milkdown-block-handle svg,
+.milkdown-link-preview svg,
+.milkdown-link-edit svg {
+  fill: var(--text-color) !important;
+  color: var(--text-color) !important;
 }
 
 /* Direct targeting of the picker and its children */
@@ -247,9 +278,32 @@ body, html {
 
 .milkdown-code-block > .header,
 .crepe .header {
-  border-bottom: 1px solid var(--border-color) !important;
+  border-bottom: none !important;
   margin-bottom: 0 !important;
 }
+
+/* Ensure no internal background overrides line colors */
+.cm-content, .cm-line, .cm-gutters, .cm-activeLine, .cm-activeLineGutter, .cm-editor {
+  background-color: transparent !important;
+}
+
+/* HIGH CONTRAST SYNTAX HIGHLIGHTING */
+.cm-keyword { color: var(--c-orange) !important; font-weight: bold; }
+.cm-operator, .cm-punctuation { color: var(--text-color) !important; }
+.cm-variableName, .cm-variableName.cm-definition { color: var(--text-color) !important; }
+.cm-propertyName { color: var(--c-aqua) !important; }
+.cm-typeName, .cm-className, .cm-namespace, .cm-macroName { color: var(--c-yellow) !important; }
+.cm-string { color: var(--c-green) !important; }
+.cm-number, .cm-integer, .cm-float { color: var(--c-purple) !important; }
+.cm-bool, .cm-null, .cm-atom { color: var(--c-purple) !important; }
+.cm-comment { color: var(--gb-gray) !important; font-style: italic; }
+.cm-meta { color: var(--c-aqua) !important; }
+.cm-link { color: var(--c-blue) !important; text-decoration: underline; }
+.cm-url { color: var(--c-blue) !important; }
+.cm-header { color: var(--c-orange) !important; font-weight: bold; }
+.cm-strong { font-weight: bold; }
+.cm-emphasis { font-style: italic; }
+.cm-strikethrough { text-decoration: line-through; }
 
 .copy-button:hover {
   border-color: var(--c-aqua) !important;
@@ -345,16 +399,17 @@ milkdown-icon, .milkdown-icon, [class^="milkdown-icon"], .crepe-icon, .material-
   border-radius: 4px;
   font-family: inherit;
   font-size: 0.9em !important;
-  border: 1px solid var(--border-color) !important;
+  border: none !important;
 }
 
 .milkdown pre,
 .milkdown .crepe-code-block,
+.milkdown .milkdown-code-block,
 .milkdown [data-type="code_block"] {
   background: var(--code-bg) !important;
   padding: 20px !important;
   border-radius: 8px !important;
-  border: 1px solid var(--border-color) !important;
+  border: var(--code-border) !important;
   margin: 1.5em 0 !important;
   width: 100% !important;
 }

@@ -1,9 +1,30 @@
 import React, { useState } from 'react';
+import { 
+  FilePlus, 
+  FolderOpen, 
+  Save, 
+  FileOutput, 
+  Zap, 
+  Code, 
+  Eye, 
+  HelpCircle, 
+  Sun, 
+  Moon, 
+  Menu, 
+  X,
+  Server,
+  HardDrive,
+  LogOut
+} from 'lucide-react';
 import { useFile } from './hooks/useFile';
 import { MilkdownEditor } from './components/MilkdownEditor';
 import { SourceEditor } from './components/SourceEditor';
 import { MarkdownHelp } from './components/MarkdownHelp';
 import { ConfirmModal } from './components/ConfirmModal';
+import { SshConnectModal } from './components/SshConnectModal';
+import { RemoteFileBrowser } from './components/RemoteFileBrowser';
+import { sshService } from './services/SshService';
+import type { SshConfig } from './services/SshService';
 import './styles/App.css';
 
 const App: React.FC = () => {
@@ -12,6 +33,10 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [confirmMessage, setConfirmMessage] = useState<string>('');
+  const [showSshConnect, setShowSshConnect] = useState(false);
+  const [showRemoteBrowser, setShowRemoteBrowser] = useState(false);
+  const [isConnected, setIsConnected] = useState(sshService.isConnected());
+  const [connectedMachine, setConnectedMachine] = useState<string | null>(sshService.getConnectedMachineName());
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('mdit_theme') as 'light' | 'dark') || 'dark';
@@ -21,6 +46,7 @@ const App: React.FC = () => {
     content,
     fileName,
     filePath,
+    fileMode,
     isDirty,
     isSaving,
     isLoading,
@@ -31,6 +57,7 @@ const App: React.FC = () => {
     needsConfirmation,
     updateContent,
     openFile,
+    openRemoteFile,
     saveFile,
     saveFileAs,
     newFile,
@@ -84,10 +111,43 @@ const App: React.FC = () => {
     setIsMenuOpen(false);
   };
 
+  const handleSshConnect = async (config: SshConfig) => {
+    await sshService.connect(config);
+    setIsConnected(true);
+    setConnectedMachine(sshService.getConnectedMachineName());
+    setShowSshConnect(false);
+    setShowRemoteBrowser(true);
+  };
+
+  const handleSshDisconnect = async () => {
+    await sshService.disconnect();
+    setIsConnected(false);
+    setConnectedMachine(null);
+    if (fileMode === 'remote') {
+      newFile();
+    }
+    setIsMenuOpen(false);
+  };
+
+  const handleRemoteFileSelect = async (path: string) => {
+    if (needsConfirmation()) {
+      setConfirmMessage("You have unsaved content. Are you sure you want to discard it and open a remote file?");
+      setConfirmAction(() => () => {
+        openRemoteFile(path);
+        setShowRemoteBrowser(false);
+        setConfirmAction(null);
+      });
+    } else {
+      await openRemoteFile(path);
+      setShowRemoteBrowser(false);
+    }
+    setIsMenuOpen(false);
+  };
+
   // Keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (confirmAction) return; // Disable shortcuts while modal is open
+      if (confirmAction || showSshConnect || showRemoteBrowser) return;
 
       const isMod = e.ctrlKey || e.metaKey;
 
@@ -97,7 +157,7 @@ const App: React.FC = () => {
       } else if (isMod && e.key === 'o') {
         e.preventDefault();
         handleOpenFile();
-      } else if (e.altKey && e.key === 'n') { // Changed to Alt+N to avoid browser conflict
+      } else if (e.altKey && e.key === 'n') {
         e.preventDefault();
         handleNewFile();
       } else if (isMod && e.key === 'h') {
@@ -120,13 +180,23 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile, openFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction]);
+  }, [saveFile, openFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction, showSshConnect, showRemoteBrowser]);
 
   return (
     <div className="app-container">
       <header className="app-header">
         <div className="file-info" title={filePath || fileName}>
-          <span className="file-name">{fileName}</span>
+          <div className="file-name-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span className="file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {fileMode === 'remote' && <Server size={16} color="var(--c-aqua)" />}
+              {fileName}
+            </span>
+            {fileMode === 'remote' && connectedMachine && (
+              <span className="machine-info" style={{ fontSize: '11px', color: 'var(--gb-gray)', marginTop: '2px' }}>
+                Connected to: {connectedMachine}
+              </span>
+            )}
+          </div>
           <div className={`dirty-indicator ${isDirty ? 'visible' : ''}`} title="Unsaved changes" />
         </div>
         
@@ -135,46 +205,90 @@ const App: React.FC = () => {
           onClick={toggleMenu} 
           title="Toggle Menu"
         >
-          {isMenuOpen ? '✕' : '☰'}
+          {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
 
         <div className={`actions ${isMenuOpen ? 'menu-open' : ''}`}>
-          <button onClick={handleNewFile}>New</button>
-          <button onClick={handleOpenFile}>Open</button>
+          <button onClick={handleNewFile} title="New File (Alt+N)" className="icon-only">
+            <FilePlus size={18} />
+            <span className="label">New</span>
+          </button>
+          
+          <button onClick={handleOpenFile} title="Open Local File (Ctrl+O)" className="icon-only">
+            <FolderOpen size={18} />
+            <span className="label">Open Local</span>
+          </button>
+
+          {!isConnected ? (
+            <button onClick={() => { setShowSshConnect(true); setIsMenuOpen(false); }} title="Connect to Remote Server" className="icon-only">
+              <Server size={18} />
+              <span className="label">Connect Remote</span>
+            </button>
+          ) : (
+            <>
+              <button onClick={() => { setShowRemoteBrowser(true); setIsMenuOpen(false); }} title="Browse Remote Files" className="icon-only">
+                <HardDrive size={18} color="var(--c-aqua)" />
+                <span className="label">Open Remote</span>
+              </button>
+              <button onClick={handleSshDisconnect} title="Disconnect SSH" className="icon-only danger-btn">
+                <LogOut size={18} />
+                <span className="label">Disconnect</span>
+              </button>
+            </>
+          )}
+
+          <div className="menu-divider" />
+
           <button 
             onClick={() => { saveFile(); setIsMenuOpen(false); }} 
-            className={!isDirty ? 'saved' : ''}
+            className={`icon-only ${!isDirty ? 'saved' : ''}`}
             disabled={isSaving}
+            title="Save (Ctrl+S)"
           >
-            {isSaving ? 'Saving...' : !isDirty ? 'Saved' : 'Save'}
+            <Save size={18} />
+            <span className="label">{isSaving ? 'Saving...' : !isDirty ? 'Saved' : 'Save'}</span>
           </button>
-          <button onClick={() => { saveFileAs(); setIsMenuOpen(false); }}>Save As</button>
+          
+          <button onClick={() => { saveFileAs(); setIsMenuOpen(false); }} title="Save As" className="icon-only">
+            <FileOutput size={18} />
+            <span className="label">Save As</span>
+          </button>
           
           <button
             onClick={toggleAutosave}
-            className={autosaveEnabled && filePath && hasWritePermission ? 'active' : ''}
+            className={`icon-only ${autosaveEnabled && filePath && hasWritePermission ? 'active' : ''}`}
             style={autosaveEnabled && filePath && !hasWritePermission ? { borderColor: 'var(--c-orange)', color: 'var(--c-orange)' } : {}}
             title="Toggle Auto-save (Ctrl+A)"
           >
-            {autosaveEnabled && filePath && !hasWritePermission ? 'Auto-save: Needs Permission (Click Save)' : `Auto-save: ${autosaveEnabled && filePath ? 'ON' : 'OFF'}`}
+            <Zap size={18} fill={autosaveEnabled && filePath && hasWritePermission ? "currentColor" : "none"} />
+            <span className="label">Autosave</span>
           </button>
+
+          <div className="menu-divider" />
+
           <button
             onClick={() => { toggleSourceMode(); setIsMenuOpen(false); }}
-            className={isSourceMode ? 'active' : ''}
+            className={`icon-only ${isSourceMode ? 'active' : ''}`}
             title="Toggle Source Mode (Ctrl+M)"
           >
-            {isSourceMode ? 'Plain text' : 'Markdown'}
+            {isSourceMode ? <Eye size={18} /> : <Code size={18} />}
+            <span className="label">{isSourceMode ? 'Markdown' : 'Source'}</span>
           </button>
-          <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }}>Help</button>
-          <button className="theme-toggle" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+L)">
-            {theme === 'light' ? '🌑' : '☀️'}
+          
+          <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }} title="Help (Ctrl+H)" className="icon-only">
+            <HelpCircle size={18} />
+            <span className="label">Help</span>
+          </button>
+          
+          <button className="theme-toggle icon-only" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+L)">
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
         </div>
       </header>
 
       <main className="editor-container">
         {isLoading ? (
-           <div className="loading-overlay">Initializing MDit...</div>
+           <div className="loading-overlay">Loading MDit v2...</div>
         ) : isSourceMode ? (
           <SourceEditor content={content} onChange={updateContent} />
         ) : (
@@ -188,6 +302,20 @@ const App: React.FC = () => {
 
       {showHelp && <MarkdownHelp onClose={() => setShowHelp(false)} />}
       
+      {showSshConnect && (
+        <SshConnectModal 
+          onConnect={handleSshConnect} 
+          onClose={() => setShowSshConnect(false)} 
+        />
+      )}
+
+      {showRemoteBrowser && (
+        <RemoteFileBrowser 
+          onFileSelect={handleRemoteFileSelect} 
+          onClose={() => setShowRemoteBrowser(false)} 
+        />
+      )}
+
       {confirmAction && (
         <ConfirmModal 
           message={confirmMessage} 

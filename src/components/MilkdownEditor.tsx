@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Crepe } from '@milkdown/crepe';
 import { replaceAll } from '@milkdown/utils';
 
@@ -16,6 +16,7 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
   const editorRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const lastMarkdownRef = useRef(content);
+  const [isReady, setIsReady] = React.useState(false);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -25,11 +26,15 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
     let crepeInstance: Crepe | null = null;
 
     const init = async () => {
+      setIsReady(false);
       container.innerHTML = '';
 
-      crepeInstance = new Crepe({
+      const crepe = new Crepe({
         root: container,
-        defaultValue: content,
+        defaultValue: lastMarkdownRef.current,
+        features: {
+          [Crepe.Feature.Latex]: false,
+        },
         featureConfigs: {
           [Crepe.Feature.Placeholder]: {
             text: '...',
@@ -56,11 +61,9 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
         },
       });
 
-      crepeInstance.on((listener) => {
+      crepe.on((listener) => {
         listener.markdownUpdated((_, markdown) => {
-          // Clean up any rogue <br> tags inserted by the editor for cleaner source markdown
           const cleanMarkdown = markdown.replace(/<br\s*\/?>/gi, '\n');
-          
           if (cleanMarkdown !== lastMarkdownRef.current) {
             lastMarkdownRef.current = cleanMarkdown;
             onChange(cleanMarkdown);
@@ -68,12 +71,17 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
         });
       });
 
-      await crepeInstance.create();
-
-      if (destroyed) {
-        crepeInstance.destroy();
-      } else {
-        crepeRef.current = crepeInstance;
+      try {
+        await crepe.create();
+        if (destroyed) {
+          await crepe.destroy();
+        } else {
+          crepeInstance = crepe;
+          crepeRef.current = crepe;
+          setIsReady(true);
+        }
+      } catch (e) {
+        console.error('Failed to create Crepe editor:', e);
       }
     };
 
@@ -81,32 +89,35 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
 
     return () => {
       destroyed = true;
-      if (crepeRef.current) {
-        crepeRef.current.destroy();
-        crepeRef.current = null;
-      } else if (crepeInstance) {
+      if (crepeInstance) {
         crepeInstance.destroy();
       }
-      container.innerHTML = '';
+      if (crepeRef.current === crepeInstance) {
+        crepeRef.current = null;
+      }
+      if (container) {
+        container.innerHTML = '';
+      }
     };
   }, []);
 
   // Sync content only when forceSync changes (external triggers)
   // We explicitly remove 'content' from dependencies to prevent typing loops
   useEffect(() => {
-    if (!crepeRef.current || !forceSync) return;
+    if (!isReady || !crepeRef.current || !forceSync) return;
     
     const crepe = crepeRef.current;
-    const timer = setTimeout(() => {
-      if (!crepe.editor) return;
+    if (!crepe.editor) return;
+    
+    try {
       crepe.editor.action((ctx) => {
         lastMarkdownRef.current = content;
         replaceAll(content)(ctx);
       });
-    }, 10);
-    
-    return () => clearTimeout(timer);
-  }, [forceSync]);
+    } catch (e) {
+      console.warn('Sync failed:', e);
+    }
+  }, [forceSync, isReady]);
 
   return (
     <div className="milkdown-wrapper">
