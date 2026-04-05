@@ -141,6 +141,29 @@ export function useFile() {
     }
   }, []);
 
+  const saveRemoteFileAs = useCallback(async (contentToSave: string, path: string) => {
+    try {
+      setIsSaving(true);
+      await sshService.writeFile(path, contentToSave);
+      const name = path.split('/').pop() || path;
+      
+      setFileMode('remote');
+      setHandle(null);
+      setContent(contentToSave);
+      setFileName(name);
+      setFilePath(path);
+      setIsDirty(false);
+      setHasWritePermission(true);
+      setAutosaveEnabled(true);
+      setLastExternalUpdate(Date.now());
+    } catch (e) {
+      console.error('Save remote as failed:', e);
+      throw e;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const saveFileAs = useCallback(async (contentToSave: string, currentName: string) => {
     try {
       setIsSaving(true);
@@ -256,6 +279,7 @@ export function useFile() {
     updateContent,
     openFile,
     openRemoteFile,
+    saveRemoteFileAs,
     saveFile: () => saveFile(false),
     saveFileAs: () => saveFileAs(content, fileName),
     newFile,

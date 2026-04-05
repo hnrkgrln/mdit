@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { sshService } from '../services/SshService';
 import type { RemoteEntry } from '../services/SshService';
-import { X, Folder, FileText, ChevronLeft, HardDrive, Search } from 'lucide-react';
+import { X, Folder, FileText, ChevronLeft, HardDrive, Search, Save } from 'lucide-react';
 
 interface RemoteFileBrowserProps {
+  mode: 'open' | 'save';
   onFileSelect: (path: string) => void;
   onClose: () => void;
+  suggestedName?: string;
 }
 
-export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSelect, onClose }) => {
+export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ mode, onFileSelect, onClose, suggestedName = '' }) => {
   const [currentPath, setCurrentPath] = useState('.');
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [newFileName, setNewFileName] = useState(suggestedName.endsWith('.md') ? suggestedName : `${suggestedName}.md`);
 
   const fetchEntries = async (path: string) => {
     setIsLoading(true);
@@ -22,7 +25,7 @@ export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSele
       const list = await sshService.listDirectory(path);
       setEntries(list);
       setCurrentPath(path);
-      setSearchQuery(''); // Clear search when changing directories
+      setSearchQuery('');
     } catch (err: any) {
       setError(err.message || 'Failed to list directory');
     } finally {
@@ -38,9 +41,18 @@ export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSele
     const newPath = currentPath === '.' ? entry.name : `${currentPath}/${entry.name}`;
     if (entry.isDirectory) {
       fetchEntries(newPath);
-    } else if (entry.name.endsWith('.md')) {
+    } else if (mode === 'open' && entry.name.endsWith('.md')) {
       onFileSelect(newPath);
+    } else if (mode === 'save' && entry.name.endsWith('.md')) {
+      setNewFileName(entry.name);
     }
+  };
+
+  const handleSave = () => {
+    if (!newFileName.trim()) return;
+    const finalName = newFileName.endsWith('.md') ? newFileName : `${newFileName}.md`;
+    const path = currentPath === '.' ? finalName : `${currentPath}/${finalName}`;
+    onFileSelect(path);
   };
 
   const handleBack = () => {
@@ -65,7 +77,7 @@ export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSele
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <HardDrive size={20} />
-            <h3 style={{ margin: 0 }}>Remote Files</h3>
+            <h3 style={{ margin: 0 }}>{mode === 'open' ? 'Open Remote File' : 'Save to Remote'}</h3>
           </div>
           <button className="close-btn" onClick={onClose}>
             <X size={24} />
@@ -108,7 +120,7 @@ export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSele
           </div>
         </div>
 
-        <div className="modal-body" style={{ padding: '0', maxHeight: '400px', overflowY: 'auto' }}>
+        <div className="modal-body" style={{ padding: '0', maxHeight: '300px', overflowY: 'auto' }}>
           {isLoading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>
           ) : error ? (
@@ -147,8 +159,35 @@ export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({ onFileSele
           )}
         </div>
         
-        <div className="modal-footer" style={{ padding: '15px 20px' }}>
-          <button className="cancel-btn" onClick={onClose}>Close</button>
+        <div className="modal-footer" style={{ padding: '20px', gap: '10px', flexDirection: 'column', alignItems: 'stretch' }}>
+          {mode === 'save' && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <input 
+                type="text"
+                placeholder="Filename.md"
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                style={{ 
+                  flex: 1,
+                  padding: '10px', 
+                  background: 'var(--bg-color)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '4px', 
+                  color: 'var(--text-color)',
+                  fontSize: '16px'
+                }}
+              />
+              <button 
+                className="confirm-btn" 
+                onClick={handleSave}
+                style={{ background: 'var(--c-aqua)', borderColor: 'var(--c-aqua)', minWidth: '100px' }}
+              >
+                <Save size={18} />
+                <span>Save</span>
+              </button>
+            </div>
+          )}
+          <button className="cancel-btn" onClick={onClose} style={{ width: '100%' }}>Close</button>
         </div>
       </div>
     </div>

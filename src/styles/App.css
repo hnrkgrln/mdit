@@ -144,7 +144,60 @@ body, html {
 .actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
+}
+
+.split-button-container {
+  position: relative;
+  display: flex;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background-color: var(--header-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-width: 220px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.dropdown-menu button {
+  width: 100% !important;
+  justify-content: flex-start !important;
+  padding: 10px 15px !important;
+  border: none !important;
+  background: transparent !important;
+  height: auto !important;
+  min-width: unset !important;
+  gap: 12px !important;
+  font-size: 14px !important;
+}
+
+.dropdown-menu button:hover {
+  background: rgba(146, 131, 116, 0.15) !important;
+}
+
+.dropdown-menu button.active {
+  color: var(--c-aqua) !important;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 8px 0;
+}
+
+.menu-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  margin: 0 4px;
 }
 
 .editor-container {
@@ -464,6 +517,29 @@ milkdown-icon, .milkdown-icon, [class^="milkdown-icon"], .crepe-icon, .material-
   .milkdown-wrapper, .source-editor-wrapper { padding: 20px 0 !important; max-width: 100% !important; }
   .ProseMirror, .source-editor { font-size: 18px !important; padding: 0 0 0 60px !important; }
   .menu-toggle-btn { display: flex !important; }
+  
+  .split-button-container {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .split-button-container > div {
+    width: 100%;
+  }
+
+  .split-button-container .dropdown-menu {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+    background: rgba(146, 131, 116, 0.05);
+    margin-top: 5px;
+    padding: 0;
+  }
+
+  .split-button-container .icon-only:last-child {
+    display: none; /* Hide the arrow on mobile as it's not needed for the stacked layout */
+  }
 }
 
 .menu-toggle-btn {

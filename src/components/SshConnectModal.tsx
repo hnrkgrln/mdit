@@ -112,7 +112,7 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content confirm-modal" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content confirm-modal" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Connect to Remote Server</h3>
           <button className="close-btn" onClick={onClose}>
@@ -319,7 +319,7 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
               <button type="button" className="cancel-btn" onClick={onClose} disabled={isConnecting}>
                 Cancel
               </button>
-              <button type="submit" className="confirm-btn" style={{ background: 'var(--c-aqua)', borderColor: 'var(--c-aqua)' }} disabled={isConnecting}>
+              <button type="submit" className="confirm-btn" style={{ background: 'var(--c-aqua)', borderColor: 'var(--c-aqua)', minWidth: '120px' }} disabled={isConnecting}>
                 {isConnecting ? 'Connecting...' : 'Connect'}
               </button>
             </div>
