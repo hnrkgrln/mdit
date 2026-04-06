@@ -3,7 +3,6 @@ import {
   FilePlus, 
   FolderOpen, 
   Save, 
-  FileOutput, 
   Zap, 
   Code, 
   Eye, 
@@ -14,7 +13,6 @@ import {
   X,
   Server,
   HardDrive,
-  LogOut,
   ChevronDown
 } from 'lucide-react';
 import { useFile } from './hooks/useFile';
@@ -57,7 +55,6 @@ const App: React.FC = () => {
     isDirty,
     isSaving,
     isLoading,
-    hasWritePermission,
     lastExternalUpdate,
     autosaveEnabled,
     setAutosaveEnabled,

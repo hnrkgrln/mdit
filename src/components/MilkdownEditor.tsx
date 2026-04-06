@@ -8,10 +8,10 @@ import '@milkdown/crepe/theme/frame.css';
 interface MilkdownEditorProps {
   content: string;
   onChange: (markdown: string) => void;
-  // forceSync is used as a key in the parent to force re-mounting
+  forceSync: number;
 }
 
-export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange }) => {
+export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange, forceSync: _forceSync }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const lastMarkdownRef = useRef(content);
