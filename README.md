@@ -4,7 +4,7 @@ MDit is a focused, offline-first, browser-based Markdown editor designed for dis
 
 ## Features
 
-- 📝 **Dual Editing Modes:** Instantly toggle between a rich WYSIWYG live-preview and a rock-solid raw source editor (`Ctrl + Shift + M`).
+- 📝 **Dual Editing Modes:** Instantly toggle between a rich WYSIWYG live-preview and a rock-solid raw source editor (`Ctrl + M`).
 - 🌐 **Remote SSH Editing:** Connect to remote machines via SSH/SFTP to open, edit, and save files directly on your servers.
 - 💾 **Unified Storage Controls:** Streamlined "Open" and "Save" split-buttons for quick actions or explicit Local/Remote choices.
 - 🎨 **Pro Gruvbox Theme:** High-contrast Light and Dark modes with specialized syntax highlighting for code blocks.

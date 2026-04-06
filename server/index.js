@@ -11,17 +11,14 @@ const port = process.env.PORT || 3002;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Serve static files from the frontend dist directory if it exists
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
-
 // Request logger for debugging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-app.get('/', (req, res) => {
+// API Routes - Define these BEFORE static serving to avoid 404s
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'SSH Backend is running' });
 });
 
@@ -173,10 +170,13 @@ app.post('/api/ssh/disconnect', (req, res) => {
   res.json({ success: true });
 });
 
-// Catch-all 404 handler
-app.use((req, res) => {
-  console.log(`[404] ${req.method} ${req.url}`);
-  res.status(404).json({ error: 'Route not found' });
+// Serve static files from the frontend dist directory
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Fallback for SPA: Send index.html for any non-API routes
+app.get(/^(?!\/api).+/, (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // Global error handler
@@ -185,7 +185,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error: ' + err.message });
 });
 
-// Periodic cleanup of stale sessions (sessions older than 30 mins)
+// Periodic cleanup of stale sessions
 setInterval(() => {
   const now = Date.now();
   for (const [id, session] of sessions.entries()) {
@@ -198,5 +198,5 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.listen(port, () => {
-  console.log(`SSH Backend listening at http://localhost:${port}`);
+  console.log(`MDit Production Server listening at http://localhost:${port}`);
 });
