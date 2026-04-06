@@ -33,6 +33,14 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
     }
   }, []);
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
   const handleSaveMachine = () => {
     if (!host || !username || !machineName) {
       setError('Machine Name, Host and Username are required to save');

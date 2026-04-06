@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Crepe } from '@milkdown/crepe';
-import { replaceAll } from '@milkdown/utils';
 
 // Import Crepe styles
 import '@milkdown/crepe/theme/common/style.css';
@@ -9,14 +8,13 @@ import '@milkdown/crepe/theme/frame.css';
 interface MilkdownEditorProps {
   content: string;
   onChange: (markdown: string) => void;
-  forceSync?: number;
+  // forceSync is used as a key in the parent to force re-mounting
 }
 
-export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange, forceSync }) => {
+export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const lastMarkdownRef = useRef(content);
-  const [isReady, setIsReady] = React.useState(false);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -26,12 +24,11 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
     let crepeInstance: Crepe | null = null;
 
     const init = async () => {
-      setIsReady(false);
       container.innerHTML = '';
-
+      
       const crepe = new Crepe({
         root: container,
-        defaultValue: lastMarkdownRef.current,
+        defaultValue: content,
         features: {
           [Crepe.Feature.Latex]: false,
         },
@@ -78,7 +75,6 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
         } else {
           crepeInstance = crepe;
           crepeRef.current = crepe;
-          setIsReady(true);
         }
       } catch (e) {
         console.error('Failed to create Crepe editor:', e);
@@ -92,32 +88,11 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
       if (crepeInstance) {
         crepeInstance.destroy();
       }
-      if (crepeRef.current === crepeInstance) {
-        crepeRef.current = null;
-      }
       if (container) {
         container.innerHTML = '';
       }
     };
   }, []);
-
-  // Sync content only when forceSync changes (external triggers)
-  // We explicitly remove 'content' from dependencies to prevent typing loops
-  useEffect(() => {
-    if (!isReady || !crepeRef.current || !forceSync) return;
-    
-    const crepe = crepeRef.current;
-    if (!crepe.editor) return;
-    
-    try {
-      crepe.editor.action((ctx) => {
-        lastMarkdownRef.current = content;
-        replaceAll(content)(ctx);
-      });
-    } catch (e) {
-      console.warn('Sync failed:', e);
-    }
-  }, [forceSync, isReady]);
 
   return (
     <div className="milkdown-wrapper">

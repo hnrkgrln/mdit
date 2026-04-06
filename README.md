@@ -1,24 +1,24 @@
 # MDit - Minimalist Markdown Editor
 
-MDit is a focused, offline-first, browser-based Markdown editor designed for distraction-free writing. It features a beautiful Gruvbox-inspired theme, a robust WYSIWYG editing experience powered by Milkdown, and seamless integration with your local file system.
+MDit is a focused, offline-first, browser-based Markdown editor designed for distraction-free writing. It features a beautiful Gruvbox-inspired theme, a robust WYSIWYG editing experience, and seamless integration with both your **local file system** and **remote SSH servers**.
 
 ## Features
 
-- 📝 **WYSIWYG & Source Modes:** Instantly toggle between a rich, live-preview editor and a raw plain text Markdown editor (`Ctrl + M`).
-- 🎨 **Gruvbox Theme:** Easy on the eyes with carefully tuned Light (`🌑`) and Dark (`☀️`) modes (`Ctrl + L`).
-- 💾 **Local File System Access:** Open, edit, and save `.md` files directly on your computer without uploading them to a server.
-- ⚡ **Auto-save:** Automatically saves your progress to disk. You'll never lose a draft thanks to built-in IndexedDB backup.
-- ⌨️ **Keyboard Driven:** Navigate and manage files quickly using intuitive shortcuts.
-- 📱 **Responsive Design:** A clean, full-width mobile experience with a collapsible hamburger menu.
-- 🔒 **Privacy First:** Your data never leaves your machine. Everything runs locally in your browser.
+- 📝 **Dual Editing Modes:** Instantly toggle between a rich WYSIWYG live-preview and a rock-solid raw source editor (`Ctrl + Shift + M`).
+- 🌐 **Remote SSH Editing:** Connect to remote machines via SSH/SFTP to open, edit, and save files directly on your servers.
+- 💾 **Unified Storage Controls:** Streamlined "Open" and "Save" split-buttons for quick actions or explicit Local/Remote choices.
+- 🎨 **Pro Gruvbox Theme:** High-contrast Light and Dark modes with specialized syntax highlighting for code blocks.
+- ⚡ **Auto-save (Default):** Your work is protected by default. Changes are automatically saved to your chosen location, with background draft backup in IndexedDB.
+- 🔗 **Connection Status:** A dedicated header "pill" shows exactly which remote machine you're connected to, with a one-click disconnect.
+- 🖥️ **Machine Manager:** Save and switch between multiple named remote configurations effortlessly.
+- ⌨️ **Keyboard Optimized:** Efficient shortcuts for almost every action, including a custom Tab-supported source editor.
 
 ## Getting Started
 
-MDit is built using React, TypeScript, and Vite. 
-
 ### Prerequisites
 
-Ensure you have [Node.js](https://nodejs.org/) installed (version 18 or higher is recommended).
+- **Node.js:** Version 18 or higher.
+- **SSH Server:** For remote editing, ensure your machine has SFTP enabled.
 
 ### Installation
 
@@ -28,54 +28,62 @@ Ensure you have [Node.js](https://nodejs.org/) installed (version 18 or higher i
    cd mdit
    ```
 
-2. Install the dependencies:
+2. Install root dependencies:
    ```bash
    npm install --legacy-peer-deps
    ```
-   *(Note: `--legacy-peer-deps` is required due to a known peer dependency conflict between `vite-plugin-pwa` and Vite 8).*
+   *(Note: `--legacy-peer-deps` is required for certain Milkdown plugins).*
 
-### Running Locally
+3. Install backend dependencies:
+   ```bash
+   cd server
+   npm install
+   cd ..
+   ```
 
-Start the development server:
+### Running Locally (Development)
+
+Start both the frontend and the SSH backend:
 ```bash
-npm run dev
+npm run dev:all
 ```
-Open your browser and navigate to the local URL provided in the terminal (usually `http://localhost:5173/`).
+The editor will be available at `http://localhost:5173`. The backend runs on port `3002`.
+
+## Production Setup
+
+1. **Build the Frontend:**
+   ```bash
+   npm run build
+   ```
+
+2. **Run the Production Server:**
+   ```bash
+   npm start
+   ```
+   The backend serves both the API and the assets on port `3002` (configurable via `PORT` env var).
 
 ## Keyboard Shortcuts
 
-MDit is designed to be fast and keyboard-friendly:
-
 | Action | Shortcut |
 | :--- | :--- |
-| **New File** | `Alt + N` |
-| **Open File** | `Ctrl + O` |
-| **Save File** | `Ctrl + S` |
+| **New File** | `Ctrl + Shift + N` |
+| **Open Menu** | `Ctrl + O` |
+| **Save / Quick Save** | `Ctrl + S` |
 | **Toggle Auto-save** | `Ctrl + A` |
 | **Toggle Source Mode** | `Ctrl + M` |
-| **Toggle Theme** | `Ctrl + L` |
+| **Toggle Theme** | `Ctrl + Shift + L` |
 | **Markdown Help** | `Ctrl + H` |
-| **Close Help Modal** | `Escape` |
-
-*(On macOS, use the `Cmd` key instead of `Ctrl`)*
+| **Close Modals/Menus** | `Escape` |
 
 ## Tech Stack
 
-*   **Framework:** React 18
-*   **Build Tool:** Vite
-*   **Editor Engine:** [Milkdown (Crepe)](https://milkdown.dev/) - A headless, plugin-driven Markdown editor.
-*   **File System:** Native HTML5 File System Access API
-*   **Styling:** Vanilla CSS with CSS Variables for dynamic theming.
-*   **Icons:** Material Icons Outlined
+*   **Frontend:** React 18, TypeScript, Vite.
+*   **Editor:** [Milkdown (Crepe)](https://milkdown.dev/).
+*   **Backend:** Node.js, Express, `ssh2` (SFTP).
+*   **Storage:** HTML5 File System Access API & IndexedDB (idb-keyval).
 
-## Building for Production
+## Privacy & Security
 
-To create a production-ready build (which also generates the PWA service workers):
-
-```bash
-npm run build
-```
-You can then preview the build using:
-```bash
-npm run preview
-```
+*   **Local Files:** Handled entirely via browser APIs; never touched by the backend.
+*   **Remote Files:** Credentials are sent to **your** local Node.js backend to establish the SSH tunnel. No third-party servers involved.
+*   **Persistent Config:** Machine metadata is stored locally in your browser's `localStorage`.

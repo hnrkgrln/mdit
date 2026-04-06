@@ -11,11 +11,28 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ content, onChange })
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
+      // Set cursor to start
+      textareaRef.current.setSelectionRange(0, 0);
     }
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = e.currentTarget.selectionStart;
+      const end = e.currentTarget.selectionEnd;
+
+      // Insert 2 spaces for tab
+      const newValue = content.substring(0, start) + '  ' + content.substring(end);
+      onChange(newValue);
+
+      // Re-position cursor after state update
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
+        }
+      }, 0);
+    }
   };
 
   return (
@@ -24,9 +41,10 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ content, onChange })
         ref={textareaRef}
         className="source-editor"
         value={content}
-        onChange={handleChange}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         spellCheck={false}
-        placeholder="..."
+        placeholder="Type your markdown here..."
       />
     </div>
   );

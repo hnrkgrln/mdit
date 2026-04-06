@@ -122,6 +122,51 @@ body, html {
   gap: 15px;
 }
 
+.connection-status {
+  margin-left: auto;
+  margin-right: 20px;
+}
+
+.connection-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(146, 131, 116, 0.1);
+  border: 1px solid var(--border-color);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-color);
+}
+
+.connection-pill .machine-name {
+  font-weight: bold;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disconnect-btn {
+  background: transparent !important;
+  border: none !important;
+  padding: 2px !important;
+  min-width: unset !important;
+  height: auto !important;
+  color: var(--gb-gray) !important;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% !important;
+  transition: all 0.2s ease !important;
+}
+
+.disconnect-btn:hover {
+  color: var(--c-red) !important;
+  background: rgba(204, 36, 29, 0.1) !important;
+}
+
 .file-name {
   font-weight: 600;
   font-size: 20px;
@@ -145,6 +190,26 @@ body, html {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.icon-only {
+  min-width: 40px !important;
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-only .label {
+  display: none;
+}
+
+.round-icon {
+  border-radius: 50% !important;
 }
 
 .split-button-container {
@@ -177,6 +242,7 @@ body, html {
   min-width: unset !important;
   gap: 12px !important;
   font-size: 14px !important;
+  text-align: left !important;
 }
 
 .dropdown-menu button:hover {
@@ -214,8 +280,7 @@ body, html {
 .source-editor-wrapper {
   width: 100%;
   max-width: 1400px;
-  height: max-content;
-  min-height: 100%;
+  height: 100%;
   padding: 40px 40px;
   box-sizing: border-box;
   display: flex;
@@ -224,13 +289,13 @@ body, html {
 
 .source-editor {
   width: 100%;
+  height: 100%;
   flex: 1;
-  min-height: calc(100vh - 160px);
   background: transparent;
   color: var(--text-color);
   border: none;
   font-family: 'Share Tech Mono', monospace !important;
-  font-size: 20px; /* Bumped up from 20px */
+  font-size: 20px;
   line-height: 1.6;
   resize: none;
   outline: none;
@@ -518,6 +583,18 @@ milkdown-icon, .milkdown-icon, [class^="milkdown-icon"], .crepe-icon, .material-
   .ProseMirror, .source-editor { font-size: 18px !important; padding: 0 0 0 60px !important; }
   .menu-toggle-btn { display: flex !important; }
   
+  .connection-status {
+    order: -1;
+    margin: 0 0 15px 0;
+    width: 100%;
+  }
+
+  .connection-pill {
+    width: 100%;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  
   .split-button-container {
     flex-direction: column;
     width: 100%;
@@ -535,6 +612,7 @@ milkdown-icon, .milkdown-icon, [class^="milkdown-icon"], .crepe-icon, .material-
     background: rgba(146, 131, 116, 0.05);
     margin-top: 5px;
     padding: 0;
+    display: flex; /* Ensure it shows up in the stacked mobile layout */
   }
 
   .split-button-container .icon-only:last-child {

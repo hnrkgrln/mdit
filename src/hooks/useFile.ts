@@ -26,6 +26,7 @@ export function useFile() {
   
   const [autosaveEnabled, setAutosaveEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem(AUTOSAVE_KEY);
+    // Default to true if no preference is stored
     return saved === null ? true : saved === 'true';
   });
 
@@ -93,7 +94,7 @@ export function useFile() {
   }, [autosaveEnabled]);
 
   const updateContent = useCallback((newContent: string) => {
-    if (newContent.trim() !== content.trim()) {
+    if (newContent !== content) {
       setContent(newContent);
       setIsDirty(true);
     }
@@ -205,6 +206,13 @@ export function useFile() {
       setIsSaving(true);
       
       if (fileMode === 'remote' && filePath) {
+        if (!sshService.isConnected()) {
+          if (isAuto) {
+            setIsSaving(false);
+            return; // Don't log error for auto-save if not connected
+          }
+          throw new Error('Not connected to remote server. Please connect first.');
+        }
         await sshService.writeFile(filePath, content);
         setIsDirty(false);
       } else if (fileMode === 'local' && handle) {
@@ -240,7 +248,7 @@ export function useFile() {
     setFileName('Untitled');
     setFilePath(null);
     setIsDirty(false);
-    setLastExternalUpdate(Date.now());
+    setLastExternalUpdate(Date.now()); // Use timestamp to ensure sync is triggered
     del(DRAFT_KEY);
     del(HANDLE_KEY);
     del(NAME_KEY);

@@ -41,13 +41,13 @@ export const MarkdownHelp: React.FC<MarkdownHelpProps> = ({ onClose }) => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>New File</td><td><code>Alt + N</code></td></tr>
+              <tr><td>New File</td><td><code>Ctrl + Shift + N</code></td></tr>
               <tr><td>Open File</td><td><code>Ctrl + O</code></td></tr>
               <tr><td>Save File</td><td><code>Ctrl + S</code></td></tr>
               <tr><td>Toggle Auto-save</td><td><code>Ctrl + A</code></td></tr>
               <tr><td>Toggle Source Mode</td><td><code>Ctrl + M</code></td></tr>
               <tr><td>Toggle Help</td><td><code>Ctrl + H</code></td></tr>
-              <tr><td>Toggle Theme</td><td><code>Ctrl + L</code></td></tr>
+              <tr><td>Toggle Theme</td><td><code>Ctrl + Shift + L</code></td></tr>
             </tbody>
           </table>
 

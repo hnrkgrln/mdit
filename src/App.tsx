@@ -24,7 +24,6 @@ import { MarkdownHelp } from './components/MarkdownHelp';
 import { ConfirmModal } from './components/ConfirmModal';
 import { SshConnectModal } from './components/SshConnectModal';
 import { RemoteFileBrowser } from './components/RemoteFileBrowser';
-import { OpenFileModal } from './components/OpenFileModal';
 import { sshService } from './services/SshService';
 import type { SshConfig } from './services/SshService';
 import './styles/App.css';
@@ -36,7 +35,7 @@ const App: React.FC = () => {
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [confirmMessage, setConfirmMessage] = useState<string>('');
   const [showSshConnect, setShowSshConnect] = useState(false);
-  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [showOpenDropdown, setShowOpenDropdown] = useState(false);
   const [showSaveDropdown, setShowSaveDropdown] = useState(false);
   const [remoteBrowserMode, setRemoteBrowserMode] = useState<'open' | 'save'>('open');
   const [showRemoteBrowser, setShowRemoteBrowser] = useState(false);
@@ -44,6 +43,7 @@ const App: React.FC = () => {
   const [connectedMachine, setConnectedMachine] = useState<string | null>(sshService.getConnectedMachineName());
   
   const saveDropdownRef = useRef<HTMLDivElement>(null);
+  const openDropdownRef = useRef<HTMLDivElement>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('mdit_theme') as 'light' | 'dark') || 'dark';
@@ -77,11 +77,14 @@ const App: React.FC = () => {
     localStorage.setItem('mdit_theme', theme);
   }, [theme]);
 
-  // Handle clicks outside save dropdown
+  // Handle clicks outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (saveDropdownRef.current && !saveDropdownRef.current.contains(event.target as Node)) {
         setShowSaveDropdown(false);
+      }
+      if (openDropdownRef.current && !openDropdownRef.current.contains(event.target as Node)) {
+        setShowOpenDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -117,6 +120,16 @@ const App: React.FC = () => {
     setIsMenuOpen(false);
   };
 
+  const handleOpen = () => {
+    // If we're already remote, default to remote open
+    if (fileMode === 'remote') {
+      handleOpenRemote();
+    } else {
+      handleOpenFileLocal();
+    }
+    setIsMenuOpen(false);
+  };
+
   const handleOpenFileLocal = () => {
     if (needsConfirmation()) {
       setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and open a different file?");
@@ -127,6 +140,18 @@ const App: React.FC = () => {
     } else {
       openFile();
     }
+    setShowOpenDropdown(false);
+    setIsMenuOpen(false);
+  };
+
+  const handleOpenRemote = () => {
+    setRemoteBrowserMode('open');
+    if (isConnected) {
+      setShowRemoteBrowser(true);
+    } else {
+      setShowSshConnect(true);
+    }
+    setShowOpenDropdown(false);
     setIsMenuOpen(false);
   };
 
@@ -135,7 +160,6 @@ const App: React.FC = () => {
     setIsConnected(true);
     setConnectedMachine(sshService.getConnectedMachineName());
     setShowSshConnect(false);
-    setRemoteBrowserMode('open');
     setShowRemoteBrowser(true);
   };
 
@@ -169,11 +193,19 @@ const App: React.FC = () => {
     setIsMenuOpen(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!filePath) {
       setShowSaveDropdown(true);
     } else {
-      saveFile();
+      try {
+        await saveFile();
+      } catch (err: any) {
+        if (err.message.includes('Not connected')) {
+          setShowSshConnect(true);
+        } else {
+          console.error('Save failed:', err);
+        }
+      }
     }
     setIsMenuOpen(false);
   };
@@ -184,8 +216,8 @@ const App: React.FC = () => {
   };
 
   const handleSaveRemoteAs = () => {
+    setRemoteBrowserMode('save');
     if (isConnected) {
-      setRemoteBrowserMode('save');
       setShowRemoteBrowser(true);
     } else {
       setShowSshConnect(true);
@@ -196,7 +228,7 @@ const App: React.FC = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (confirmAction || showSshConnect || showRemoteBrowser || showOpenFileModal) return;
+      if (confirmAction || showSshConnect || showRemoteBrowser || showOpenDropdown || showSaveDropdown) return;
 
       const isMod = e.ctrlKey || e.metaKey;
 
@@ -205,14 +237,14 @@ const App: React.FC = () => {
         handleSave();
       } else if (isMod && e.key === 'o') {
         e.preventDefault();
-        setShowOpenFileModal(true);
-      } else if (e.altKey && e.key === 'n') {
+        setShowOpenDropdown(true);
+      } else if (isMod && e.shiftKey && e.key === 'N') {
         e.preventDefault();
         handleNewFile();
       } else if (isMod && e.key === 'h') {
         e.preventDefault();
         setShowHelp(prev => !prev);
-      } else if (isMod && e.key === 'l') {
+      } else if (isMod && e.shiftKey && e.key === 'L') {
         e.preventDefault();
         toggleTheme();
       } else if (isMod && e.key === 'a') {
@@ -224,14 +256,14 @@ const App: React.FC = () => {
       } else if (e.key === 'Escape') {
         setShowHelp(false);
         setIsMenuOpen(false);
-        setShowOpenFileModal(false);
+        setShowOpenDropdown(false);
         setShowSaveDropdown(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction, showSshConnect, showRemoteBrowser, showOpenFileModal, filePath]);
+  }, [saveFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction, showSshConnect, showRemoteBrowser, showOpenDropdown, showSaveDropdown, filePath, fileMode]);
 
   return (
     <div className="app-container">
@@ -250,6 +282,22 @@ const App: React.FC = () => {
           </div>
           <div className={`dirty-indicator ${isDirty ? 'visible' : ''}`} title="Unsaved changes" />
         </div>
+
+        {isConnected && (
+          <div className="connection-status">
+            <div className="connection-pill">
+              <Server size={14} color="var(--c-aqua)" />
+              <span className="machine-name">{connectedMachine}</span>
+              <button 
+                onClick={handleSshDisconnect} 
+                className="disconnect-btn"
+                title={`Disconnect from ${connectedMachine}`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
         
         <button 
           className="menu-toggle-btn" 
@@ -260,22 +308,50 @@ const App: React.FC = () => {
         </button>
 
         <div className={`actions ${isMenuOpen ? 'menu-open' : ''}`}>
-          <button onClick={handleNewFile} title="New File (Alt+N)" className="icon-only">
+          <button onClick={handleNewFile} title="New File (Ctrl+Shift+N)" className="icon-only">
             <FilePlus size={18} />
             <span className="label">New</span>
           </button>
           
-          <button onClick={() => { setShowOpenFileModal(true); setIsMenuOpen(false); }} title="Open File (Ctrl+O)" className="icon-only">
-            <FolderOpen size={18} />
-            <span className="label">Open</span>
-          </button>
+          {/* Unified Open Button with Dropdown */}
+          <div className="split-button-container" ref={openDropdownRef}>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button 
+                onClick={handleOpen} 
+                className="icon-only"
+                title="Open (Ctrl+O)"
+                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+              >
+                <FolderOpen size={18} />
+                <span className="label">Open</span>
+              </button>
+              <button 
+                onClick={() => setShowOpenDropdown(!showOpenDropdown)}
+                title="Open Options"
+                className="icon-only"
+                style={{ minWidth: '24px !important', width: '24px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 0 }}
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
 
-          {isConnected && (
-            <button onClick={handleSshDisconnect} title="Disconnect SSH" className="icon-only danger-btn">
-              <LogOut size={18} />
-              <span className="label">Disconnect</span>
-            </button>
-          )}
+            {showOpenDropdown && (
+              <div className="dropdown-menu">
+                <button onClick={handleOpenFileLocal}>
+                  <FolderOpen size={16} />
+                  <span>Local...</span>
+                </button>
+                <button onClick={handleOpenRemote}>
+                  {isConnected ? (
+                    <HardDrive size={16} color="var(--c-aqua)" />
+                  ) : (
+                    <Server size={16} />
+                  )}
+                  <span>Remote...</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="menu-divider" />
 
@@ -309,11 +385,15 @@ const App: React.FC = () => {
               <div className="dropdown-menu">
                 <button onClick={handleSaveLocalAs}>
                   <FolderOpen size={16} />
-                  <span>Save Locally...</span>
+                  <span>Local...</span>
                 </button>
                 <button onClick={handleSaveRemoteAs}>
-                  <HardDrive size={16} color={isConnected ? "var(--c-aqua)" : "inherit"} />
-                  <span>{isConnected ? "Save to Remote..." : "Connect & Save Remote..."}</span>
+                  {isConnected ? (
+                    <HardDrive size={16} color="var(--c-aqua)" />
+                  ) : (
+                    <Server size={16} />
+                  )}
+                  <span>Remote...</span>
                 </button>
                 <div className="dropdown-divider" />
                 <button onClick={toggleAutosave} className={autosaveEnabled ? 'active' : ''}>
@@ -335,14 +415,14 @@ const App: React.FC = () => {
             <span className="label">{isSourceMode ? 'Markdown' : 'Source'}</span>
           </button>
           
-          <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }} title="Help (Ctrl+H)" className="icon-only">
+          <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }} title="Help (Ctrl+H)" className="icon-only round-icon">
             <HelpCircle size={18} />
-            <span className="label">Help</span>
           </button>
-          
-          <button className="theme-toggle icon-only" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+L)">
+
+          <button className="theme-toggle icon-only round-icon" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+Shift+L)">
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
+
         </div>
       </header>
 
@@ -353,6 +433,7 @@ const App: React.FC = () => {
           <SourceEditor content={content} onChange={updateContent} />
         ) : (
           <MilkdownEditor 
+            key={lastExternalUpdate}
             content={content} 
             onChange={updateContent} 
             forceSync={lastExternalUpdate}
@@ -362,16 +443,6 @@ const App: React.FC = () => {
 
       {showHelp && <MarkdownHelp onClose={() => setShowHelp(false)} />}
       
-      {showOpenFileModal && (
-        <OpenFileModal
-          isConnected={isConnected}
-          onOpenLocal={handleOpenFileLocal}
-          onOpenRemote={() => { setRemoteBrowserMode('open'); setShowRemoteBrowser(true); }}
-          onConnectRemote={() => setShowSshConnect(true)}
-          onClose={() => setShowOpenFileModal(false)}
-        />
-      )}
-
       {showSshConnect && (
         <SshConnectModal 
           onConnect={handleSshConnect} 

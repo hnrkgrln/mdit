@@ -15,7 +15,9 @@ export interface SshConfig {
   passphrase?: string;
 }
 
-const API_BASE = 'http://localhost:3002/api/ssh';
+const API_BASE = import.meta.env.DEV 
+  ? 'http://localhost:3002/api/ssh' 
+  : '/api/ssh';
 
 class SshService {
   private sessionId: string | null = null;

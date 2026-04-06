@@ -3,12 +3,17 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const { Client } = require('ssh2');
 const { nanoid } = require('nanoid');
+const path = require('path');
 
 const app = express();
-const port = 3002;
+const port = process.env.PORT || 3002;
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve static files from the frontend dist directory if it exists
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
 
 // Request logger for debugging
 app.use((req, res, next) => {
