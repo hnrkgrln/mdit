@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { SshConfig } from '../services/SshService';
-import { X, Server, User, Lock, Key, Save, Trash2, ChevronDown } from 'lucide-react';
+import { X, Server, User, Lock, Key, Save, Trash2, ChevronDown, Clock } from 'lucide-react';
 
 interface SshConnectModalProps {
   onConnect: (config: SshConfig) => Promise<void>;
   onClose: () => void;
+  timeout?: number; // Connection timeout in milliseconds (default: 20000)
 }
 
 const SAVED_MACHINES_KEY = 'mdit_ssh_machines';
+const DEFAULT_TIMEOUT = 20000; // 20 seconds
 
-export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onClose }) => {
+export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onClose, timeout = DEFAULT_TIMEOUT }) => {
   const [machineName, setMachineName] = useState('');
   const [host, setHost] = useState('');
   const [port, setPort] = useState('22');
@@ -21,6 +23,8 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
   const [error, setError] = useState<string | null>(null);
   const [savedMachines, setSavedMachines] = useState<SshConfig[]>([]);
   const [showSavedList, setShowSavedList] = useState(false);
+  const [connectionTime, setConnectionTime] = useState(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(SAVED_MACHINES_KEY);
@@ -89,10 +93,39 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
     setShowSavedList(false);
   };
 
+  // Start connection timer
+  const startConnectionTimer = () => {
+    setConnectionTime(0);
+    if (timeoutRef.current) {
+      clearInterval(timeoutRef.current);
+    }
+    timeoutRef.current = setInterval(() => {
+      setConnectionTime(prev => {
+        // Check if we've exceeded timeout
+        if (prev >= timeout) {
+          if (timeoutRef.current) {
+            clearInterval(timeoutRef.current);
+          }
+          return prev;
+        }
+        return prev + 100;
+      });
+    }, 100);
+  };
+
+  // Stop connection timer
+  const stopConnectionTimer = () => {
+    if (timeoutRef.current) {
+      clearInterval(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsConnecting(true);
     setError(null);
+    startConnectionTimer();
 
     try {
       const config: SshConfig = {
@@ -112,9 +145,17 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
     } catch (err: any) {
       setError(err.message || 'Failed to connect');
     } finally {
+      stopConnectionTimer();
       setIsConnecting(false);
     }
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      stopConnectionTimer();
+    };
+  }, []);
 
   const isExistingMachine = savedMachines.some(m => m.machineName === machineName);
 
@@ -295,6 +336,27 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
               {error && (
                 <div style={{ color: 'var(--c-red)', fontSize: '14px', marginTop: '10px' }}>
                   {error}
+                </div>
+              )}
+              
+              {isConnecting && connectionTime > 0 && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  marginTop: '10px',
+                  fontSize: '13px',
+                  color: 'var(--gb-gray)'
+                }}>
+                  <Clock size={14} />
+                  <span>
+                    Connecting... ({Math.min(Math.floor(connectionTime / 1000), Math.floor(timeout / 1000))}s)
+                  </span>
+                  {connectionTime >= timeout * 0.7 && (
+                    <span style={{ color: 'var(--c-yellow)' }}>
+                      (Connection taking longer than usual)
+                    </span>
+                  )}
                 </div>
               )}
             </div>

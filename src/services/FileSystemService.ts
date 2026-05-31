@@ -2,13 +2,7 @@
  * FileSystemService handles local file operations using the File System Access API.
  * It provides methods to open, save, and update .md files.
  */
-
-export interface FileData {
-  handle: FileSystemFileHandle | null;
-  content: string;
-  name: string;
-  path?: string;
-}
+import type { FileData } from '../types';
 
 class FileSystemService {
   private readonly pickerOptions = {

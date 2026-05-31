@@ -1,52 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  FilePlus, 
-  FolderOpen, 
-  Save, 
-  Zap, 
-  Code, 
-  Eye, 
-  HelpCircle, 
-  Sun, 
-  Moon, 
-  Menu, 
-  X,
-  Server,
-  HardDrive,
-  ChevronDown
-} from 'lucide-react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useEditorStore, useUIStore, useConnectionStore } from './store';
+import { sshService } from './services/SshService';
 import { useFile } from './hooks/useFile';
-import { MilkdownEditor } from './components/MilkdownEditor';
-import { SourceEditor } from './components/SourceEditor';
+import { useKeyboardShortcuts, useClickOutside } from './hooks';
+import { Header } from './components/Header';
+import { EditorArea } from './components/EditorArea';
 import { MarkdownHelp } from './components/MarkdownHelp';
 import { ConfirmModal } from './components/ConfirmModal';
 import { SshConnectModal } from './components/SshConnectModal';
 import { RemoteFileBrowser } from './components/RemoteFileBrowser';
-import { sshService } from './services/SshService';
-import type { SshConfig } from './services/SshService';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import type { SshConfig } from './types';
 import './styles/App.css';
 
 const App: React.FC = () => {
-  const [showHelp, setShowHelp] = useState(false);
-  const [isSourceMode, setIsSourceMode] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
-  const [confirmMessage, setConfirmMessage] = useState<string>('');
-  const [showSshConnect, setShowSshConnect] = useState(false);
-  const [showOpenDropdown, setShowOpenDropdown] = useState(false);
-  const [showSaveDropdown, setShowSaveDropdown] = useState(false);
-  const [remoteBrowserMode, setRemoteBrowserMode] = useState<'open' | 'save'>('open');
-  const [showRemoteBrowser, setShowRemoteBrowser] = useState(false);
-  const [isConnected, setIsConnected] = useState(sshService.isConnected());
-  const [connectedMachine, setConnectedMachine] = useState<string | null>(sshService.getConnectedMachineName());
-  
+  // Refs
   const saveDropdownRef = useRef<HTMLDivElement>(null);
   const openDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('mdit_theme') as 'light' | 'dark') || 'dark';
-  });
-
+  // Get state from stores
   const {
     content,
     fileName,
@@ -55,93 +27,104 @@ const App: React.FC = () => {
     isDirty,
     isSaving,
     isLoading,
-    lastExternalUpdate,
     autosaveEnabled,
+    lastExternalUpdate,
+    setContent,
+    setIsDirty,
     setAutosaveEnabled,
-    needsConfirmation,
-    updateContent,
+    resetEditor,
+  } = useEditorStore();
+
+  const {
+    theme,
+    isSourceMode,
+    isMenuOpen,
+    showHelp,
+    showSshConnect,
+    showRemoteBrowser,
+    showOpenDropdown,
+    showSaveDropdown,
+    remoteBrowserMode,
+    confirmAction,
+    confirmMessage,
+    toggleTheme,
+    toggleSourceMode,
+    toggleMenu,
+    setShowHelp,
+    setShowSshConnect,
+    setShowRemoteBrowser,
+    setShowOpenDropdown,
+    setShowSaveDropdown,
+    setRemoteBrowserMode,
+    setConfirmAction,
+    closeAllModals,
+  } = useUIStore();
+
+  const {
+    sessionId,
+    connectedMachineName,
+    setSessionId,
+    setConnectedMachineName,
+    disconnect: disconnectStore,
+  } = useConnectionStore();
+
+  // Sync store with sshService
+  const isConnected = sshService.isConnected();
+  const connectedMachine = sshService.getConnectedMachineName();
+
+  // Get file operations from useFile hook
+  const {
     openFile,
     openRemoteFile,
     saveRemoteFileAs,
     saveFile,
     saveFileAs,
-    newFile,
+    newFile: newFileHook,
+    needsConfirmation,
+    updateContent,
   } = useFile();
 
-  // Apply theme to document
+  // Sync useFile state with store
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('mdit_theme', theme);
-  }, [theme]);
+    if (content !== useEditorStore.getState().content) {
+      setContent(content);
+    }
+  }, [content, setContent]);
 
-  // Handle clicks outside dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (saveDropdownRef.current && !saveDropdownRef.current.contains(event.target as Node)) {
-        setShowSaveDropdown(false);
-      }
-      if (openDropdownRef.current && !openDropdownRef.current.contains(event.target as Node)) {
-        setShowOpenDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  const toggleAutosave = () => {
-    setAutosaveEnabled(prev => !prev);
-  };
-
-  const toggleSourceMode = () => {
-    setIsSourceMode(prev => !prev);
-  };
-
-  const toggleMenu = () => {
-    setIsMenuOpen(prev => !prev);
-  };
-
-  const handleNewFile = () => {
+  // Handler functions - defined before hooks that use them
+  const handleNewFile = useCallback(() => {
     if (needsConfirmation()) {
       setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and start a new file?");
       setConfirmAction(() => () => {
-        newFile();
-        setConfirmAction(null);
+        newFileHook();
+        resetEditor();
+        setConfirmAction(null, '');
       });
     } else {
-      newFile();
+      newFileHook();
+      resetEditor();
     }
+    setShowHelp(false);
+    setShowSshConnect(false);
+    setShowRemoteBrowser(false);
     setIsMenuOpen(false);
-  };
+  }, [needsConfirmation, newFileHook, resetEditor, setConfirmAction, setShowHelp, setShowSshConnect, setShowRemoteBrowser, setIsMenuOpen]);
 
-  const handleOpen = () => {
-    // If we're already remote, default to remote open
-    if (fileMode === 'remote') {
-      handleOpenRemote();
-    } else {
-      handleOpenFileLocal();
-    }
-    setIsMenuOpen(false);
-  };
-
-  const handleOpenFileLocal = () => {
+  const handleOpenFileLocal = useCallback(() => {
     if (needsConfirmation()) {
       setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and open a different file?");
       setConfirmAction(() => () => {
         openFile();
-        setConfirmAction(null);
+        setConfirmAction(null, '');
       });
     } else {
       openFile();
     }
     setShowOpenDropdown(false);
     setIsMenuOpen(false);
-  };
+  }, [needsConfirmation, openFile, setConfirmAction, setShowOpenDropdown, setIsMenuOpen]);
 
-  const handleOpenRemote = () => {
+  const handleOpenRemote = useCallback(() => {
     setRemoteBrowserMode('open');
     if (isConnected) {
       setShowRemoteBrowser(true);
@@ -150,47 +133,9 @@ const App: React.FC = () => {
     }
     setShowOpenDropdown(false);
     setIsMenuOpen(false);
-  };
+  }, [isConnected, setRemoteBrowserMode, setShowRemoteBrowser, setShowSshConnect, setShowOpenDropdown, setIsMenuOpen]);
 
-  const handleSshConnect = async (config: SshConfig) => {
-    await sshService.connect(config);
-    setIsConnected(true);
-    setConnectedMachine(sshService.getConnectedMachineName());
-    setShowSshConnect(false);
-    setShowRemoteBrowser(true);
-  };
-
-  const handleSshDisconnect = async () => {
-    await sshService.disconnect();
-    setIsConnected(false);
-    setConnectedMachine(null);
-    if (fileMode === 'remote') {
-      newFile();
-    }
-    setIsMenuOpen(false);
-  };
-
-  const handleRemoteFileAction = async (path: string) => {
-    if (remoteBrowserMode === 'open') {
-      if (needsConfirmation()) {
-        setConfirmMessage("You have unsaved content. Are you sure you want to discard it and open a remote file?");
-        setConfirmAction(() => () => {
-          openRemoteFile(path);
-          setShowRemoteBrowser(false);
-          setConfirmAction(null);
-        });
-      } else {
-        await openRemoteFile(path);
-        setShowRemoteBrowser(false);
-      }
-    } else {
-      await saveRemoteFileAs(content, path);
-      setShowRemoteBrowser(false);
-    }
-    setIsMenuOpen(false);
-  };
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!filePath) {
       setShowSaveDropdown(true);
     } else {
@@ -205,14 +150,14 @@ const App: React.FC = () => {
       }
     }
     setIsMenuOpen(false);
-  };
+  }, [filePath, saveFile, setShowSaveDropdown, setShowSshConnect, setIsMenuOpen]);
 
-  const handleSaveLocalAs = () => {
+  const handleSaveLocalAs = useCallback(() => {
     saveFileAs();
     setShowSaveDropdown(false);
-  };
+  }, [saveFileAs, setShowSaveDropdown]);
 
-  const handleSaveRemoteAs = () => {
+  const handleSaveRemoteAs = useCallback(() => {
     setRemoteBrowserMode('save');
     if (isConnected) {
       setShowRemoteBrowser(true);
@@ -220,230 +165,194 @@ const App: React.FC = () => {
       setShowSshConnect(true);
     }
     setShowSaveDropdown(false);
-  };
+  }, [isConnected, setRemoteBrowserMode, setShowRemoteBrowser, setShowSshConnect, setShowSaveDropdown]);
+
+  const handleSshConnect = useCallback(async (config: SshConfig) => {
+    try {
+      await sshService.connect(config);
+      setConnectedMachineName(sshService.getConnectedMachineName());
+      setSessionId(sshService.getSessionId());
+      setShowSshConnect(false);
+      setShowRemoteBrowser(true);
+    } catch (error) {
+      console.error('SSH connection failed:', error);
+    }
+  }, [setConnectedMachineName, setSessionId, setShowSshConnect, setShowRemoteBrowser]);
+
+  const handleSshDisconnect = useCallback(async () => {
+    await sshService.disconnect();
+    disconnectStore();
+    if (fileMode === 'remote') {
+      newFileHook();
+      resetEditor();
+    }
+    setIsMenuOpen(false);
+  }, [disconnectStore, fileMode, newFileHook, resetEditor, setIsMenuOpen]);
+
+  const handleRemoteFileAction = useCallback(async (path: string) => {
+    if (remoteBrowserMode === 'open') {
+      if (needsConfirmation()) {
+        setConfirmMessage("You have unsaved content. Are you sure you want to discard it and open a remote file?");
+        setConfirmAction(() => () => {
+          openRemoteFile(path);
+          setShowRemoteBrowser(false);
+          setConfirmAction(null, '');
+        });
+      } else {
+        await openRemoteFile(path);
+        setShowRemoteBrowser(false);
+      }
+    } else {
+      await saveRemoteFileAs(content, path);
+      setShowRemoteBrowser(false);
+    }
+    setIsMenuOpen(false);
+  }, [content, needsConfirmation, openRemoteFile, remoteBrowserMode, saveRemoteFileAs, setConfirmAction, setIsMenuOpen, setShowRemoteBrowser]);
+
+  const handleContentChange = useCallback((newContent: string) => {
+    updateContent(newContent);
+    setContent(newContent);
+    if (newContent !== useEditorStore.getState().content) {
+      setIsDirty(true);
+    }
+  }, [updateContent, setContent, setIsDirty]);
+
+  const handleOpen = useCallback(() => {
+    if (fileMode === 'remote') {
+      handleOpenRemote();
+    } else {
+      handleOpenFileLocal();
+    }
+    setIsMenuOpen(false);
+  }, [fileMode, handleOpenRemote, handleOpenFileLocal, setIsMenuOpen]);
+
+  // Click outside handler for dropdowns
+  useClickOutside(
+    [saveDropdownRef, openDropdownRef],
+    () => {
+      setShowSaveDropdown(false);
+      setShowOpenDropdown(false);
+    }
+  );
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (confirmAction || showSshConnect || showRemoteBrowser || showOpenDropdown || showSaveDropdown) return;
-
-      const isMod = e.ctrlKey || e.metaKey;
-
-      if (isMod && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      } else if (isMod && e.key === 'o') {
-        e.preventDefault();
-        setShowOpenDropdown(true);
-      } else if (isMod && e.shiftKey && e.key === 'N') {
-        e.preventDefault();
+  const handleKeyboardAction = useCallback((action: string) => {
+    switch (action) {
+      case 'new':
         handleNewFile();
-      } else if (isMod && e.key === 'h') {
-        e.preventDefault();
-        setShowHelp(prev => !prev);
-      } else if (isMod && e.shiftKey && e.key === 'L') {
-        e.preventDefault();
-        toggleTheme();
-      } else if (isMod && e.key === 'a') {
-        e.preventDefault();
-        toggleAutosave();
-      } else if (isMod && e.key === 'm') {
-        e.preventDefault();
+        break;
+      case 'open':
+        setShowOpenDropdown(true);
+        break;
+      case 'save':
+        handleSave();
+        break;
+      case 'toggleSource':
         toggleSourceMode();
-      } else if (e.key === 'Escape') {
-        setShowHelp(false);
+        break;
+      case 'toggleTheme':
+        toggleTheme();
+        break;
+      case 'toggleAutosave':
+        setAutosaveEnabled(!autosaveEnabled);
+        break;
+      case 'help':
+        setShowHelp(true);
+        break;
+      case 'close':
+        closeAllModals();
         setIsMenuOpen(false);
-        setShowOpenDropdown(false);
-        setShowSaveDropdown(false);
-      }
-    };
+        break;
+    }
+  }, [
+    handleNewFile,
+    handleSave,
+    toggleSourceMode,
+    toggleTheme,
+    autosaveEnabled,
+    setAutosaveEnabled,
+    setShowHelp,
+    closeAllModals,
+    setIsMenuOpen,
+    setShowOpenDropdown,
+  ]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile, newFile, setAutosaveEnabled, needsConfirmation, confirmAction, showSshConnect, showRemoteBrowser, showOpenDropdown, showSaveDropdown, filePath, fileMode]);
+  useKeyboardShortcuts({
+    onAction: handleKeyboardAction,
+    disabled: !!confirmAction || showSshConnect || showRemoteBrowser || showOpenDropdown || showSaveDropdown,
+  });
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('mdit_theme', theme);
+  }, [theme]);
+
+  // Initialize sshService with store values
+  useEffect(() => {
+    if (sessionId && connectedMachineName) {
+      // This is a bit of a hack - we need to sync the singleton
+      // In a better architecture, we'd inject the service
+    }
+  }, [sessionId, connectedMachineName]);
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <div className="file-info" title={filePath || fileName}>
-          <div className="file-name-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span className="file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {fileMode === 'remote' && <Server size={16} color="var(--c-aqua)" />}
-              {fileName}
-            </span>
-            {fileMode === 'remote' && connectedMachine && (
-              <span className="machine-info" style={{ fontSize: '11px', color: 'var(--gb-gray)', marginTop: '2px' }}>
-                Connected to: {connectedMachine}
-              </span>
-            )}
-          </div>
-          <div className={`dirty-indicator ${isDirty ? 'visible' : ''}`} title="Unsaved changes" />
-        </div>
+      <Header
+        fileName={fileName}
+        filePath={filePath}
+        fileMode={fileMode}
+        connectedMachine={connectedMachine}
+        isDirty={isDirty}
+        isSaving={isSaving}
+        isMenuOpen={isMenuOpen}
+        autosaveEnabled={autosaveEnabled}
+        isConnected={isConnected}
+        theme={theme}
+        isSourceMode={isSourceMode}
+        showOpenDropdown={showOpenDropdown}
+        showSaveDropdown={showSaveDropdown}
+        onToggleMenu={toggleMenu}
+        onNewFile={handleNewFile}
+        onOpen={handleOpen}
+        onOpenFileLocal={handleOpenFileLocal}
+        onOpenRemote={handleOpenRemote}
+        onSave={handleSave}
+        onSaveLocalAs={handleSaveLocalAs}
+        onSaveRemoteAs={handleSaveRemoteAs}
+        onToggleSourceMode={toggleSourceMode}
+        onToggleTheme={toggleTheme}
+        onToggleAutosave={() => setAutosaveEnabled(!autosaveEnabled)}
+        onSshDisconnect={handleSshDisconnect}
+        onShowHelp={() => { setShowHelp(true); toggleMenu(); }}
+        onToggleOpenDropdown={() => setShowOpenDropdown(!showOpenDropdown)}
+        onToggleSaveDropdown={() => setShowSaveDropdown(!showSaveDropdown)}
+        openDropdownRef={openDropdownRef}
+        saveDropdownRef={saveDropdownRef}
+      />
 
-        {isConnected && (
-          <div className="connection-status">
-            <div className="connection-pill">
-              <Server size={14} color="var(--c-aqua)" />
-              <span className="machine-name">{connectedMachine}</span>
-              <button 
-                onClick={handleSshDisconnect} 
-                className="disconnect-btn"
-                title={`Disconnect from ${connectedMachine}`}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-        
-        <button 
-          className="menu-toggle-btn" 
-          onClick={toggleMenu} 
-          title="Toggle Menu"
-        >
-          {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+      <ErrorBoundary
+        onError={(error) => {
+          console.error('Editor error:', error);
+        }}
+      >
+        <EditorArea
+          isLoading={isLoading}
+          isSourceMode={isSourceMode}
+          content={content}
+          fileMode={fileMode}
+          lastExternalUpdate={lastExternalUpdate}
+          onChange={handleContentChange}
+        />
+      </ErrorBoundary>
 
-        <div className={`actions ${isMenuOpen ? 'menu-open' : ''}`}>
-          <button onClick={handleNewFile} title="New File (Ctrl+Shift+N)" className="icon-only">
-            <FilePlus size={18} />
-            <span className="label">New</span>
-          </button>
-          
-          {/* Unified Open Button with Dropdown */}
-          <div className="split-button-container" ref={openDropdownRef}>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button 
-                onClick={handleOpen} 
-                className="icon-only"
-                title="Open (Ctrl+O)"
-                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-              >
-                <FolderOpen size={18} />
-                <span className="label">Open</span>
-              </button>
-              <button 
-                onClick={() => setShowOpenDropdown(!showOpenDropdown)}
-                title="Open Options"
-                className="icon-only"
-                style={{ minWidth: '24px !important', width: '24px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 0 }}
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
-
-            {showOpenDropdown && (
-              <div className="dropdown-menu">
-                <button onClick={handleOpenFileLocal}>
-                  <FolderOpen size={16} />
-                  <span>Local...</span>
-                </button>
-                <button onClick={handleOpenRemote}>
-                  {isConnected ? (
-                    <HardDrive size={16} color="var(--c-aqua)" />
-                  ) : (
-                    <Server size={16} />
-                  )}
-                  <span>Remote...</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="menu-divider" />
-
-          {/* Unified Save Button with Dropdown */}
-          <div className="split-button-container" ref={saveDropdownRef}>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button 
-                onClick={handleSave} 
-                className={`icon-only ${!isDirty ? 'saved' : ''}`}
-                disabled={isSaving}
-                title={`Save (Ctrl+S)${autosaveEnabled && filePath ? ' - Auto-save ON' : ''}`}
-                style={{ position: 'relative', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-              >
-                <Save size={18} />
-                {autosaveEnabled && filePath && (
-                  <div style={{ position: 'absolute', top: '6px', right: '6px', width: '6px', height: '6px', background: 'var(--c-aqua)', borderRadius: '50%' }} />
-                )}
-                <span className="label">{isSaving ? 'Saving...' : !isDirty ? 'Saved' : 'Save'}</span>
-              </button>
-              <button 
-                onClick={() => setShowSaveDropdown(!showSaveDropdown)}
-                title="Save Options"
-                className="icon-only"
-                style={{ minWidth: '24px !important', width: '24px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 0 }}
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
-
-            {showSaveDropdown && (
-              <div className="dropdown-menu">
-                <button onClick={handleSaveLocalAs}>
-                  <FolderOpen size={16} />
-                  <span>Local...</span>
-                </button>
-                <button onClick={handleSaveRemoteAs}>
-                  {isConnected ? (
-                    <HardDrive size={16} color="var(--c-aqua)" />
-                  ) : (
-                    <Server size={16} />
-                  )}
-                  <span>Remote...</span>
-                </button>
-                <div className="dropdown-divider" />
-                <button onClick={toggleAutosave} className={autosaveEnabled ? 'active' : ''}>
-                  <Zap size={16} fill={autosaveEnabled ? "currentColor" : "none"} />
-                  <span>Auto-save: {autosaveEnabled ? 'ON' : 'OFF'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="menu-divider" />
-
-          <button
-            onClick={() => { toggleSourceMode(); setIsMenuOpen(false); }}
-            className={`icon-only ${isSourceMode ? 'active' : ''}`}
-            title="Toggle Source Mode (Ctrl+M)"
-          >
-            {isSourceMode ? <Eye size={18} /> : <Code size={18} />}
-            <span className="label">{isSourceMode ? 'Markdown' : 'Source'}</span>
-          </button>
-          
-          <button onClick={() => { setShowHelp(true); setIsMenuOpen(false); }} title="Help (Ctrl+H)" className="icon-only round-icon">
-            <HelpCircle size={18} />
-          </button>
-
-          <button className="theme-toggle icon-only round-icon" onClick={() => { toggleTheme(); setIsMenuOpen(false); }} title="Toggle Theme (Ctrl+Shift+L)">
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-
-        </div>
-      </header>
-
-      <main className="editor-container">
-        {isLoading ? (
-           <div className="loading-overlay">Loading MDit v2...</div>
-        ) : isSourceMode ? (
-          <SourceEditor content={content} onChange={updateContent} />
-        ) : (
-          <MilkdownEditor 
-            key={lastExternalUpdate}
-            content={content} 
-            onChange={updateContent} 
-            forceSync={lastExternalUpdate}
-          />
-        )}
-      </main>
-
+      {/* Modals */}
       {showHelp && <MarkdownHelp onClose={() => setShowHelp(false)} />}
       
       {showSshConnect && (
         <SshConnectModal 
           onConnect={handleSshConnect} 
-          onClose={() => setShowSshConnect(false)} 
+          onClose={() => setShowSshConnect(false)}
         />
       )}
 
@@ -460,7 +369,7 @@ const App: React.FC = () => {
         <ConfirmModal 
           message={confirmMessage} 
           onConfirm={confirmAction} 
-          onCancel={() => setConfirmAction(null)} 
+          onCancel={() => setConfirmAction(null, '')}
         />
       )}
     </div>
