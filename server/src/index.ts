@@ -4,6 +4,9 @@ import bodyParser from 'body-parser';
 import { Client } from 'ssh2';
 import { nanoid } from 'nanoid';
 import path from 'path';
+import crypto from 'crypto';
+
+const serverSecret = crypto.randomBytes(32).toString('hex');
 
 const app: Express = express();
 const port = process.env.PORT || 3002;
@@ -24,6 +27,32 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // In-memory session storage
 const sessions = new Map<string, { conn: Client; sftp: any; lastUsed: number }>();
+
+function verifySessionToken(token: any): string | null {
+  if (typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [sessionId, signature] = parts;
+  
+  const expectedSignature = crypto.createHmac('sha256', serverSecret).update(sessionId).digest('hex');
+  
+  try {
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return null;
+    }
+    
+    if (crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+      return sessionId;
+    }
+  } catch (e) {
+    return null;
+  }
+  
+  return null;
+}
 
 // SSH Types
 interface SshConfig {
@@ -65,7 +94,7 @@ app.post('/api/ssh/connect', (req: Request, res: Response) => {
 
     conn.on('ready', () => {
       console.log('SSH Connection Ready');
-      conn.sftp((err: Error | null, sftp: any) => {
+      conn.sftp((err, sftp) => {
         if (err) {
           console.error('SFTP Subsystem Error:', err);
           if (!hasResponded) {
@@ -81,7 +110,9 @@ app.post('/api/ssh/connect', (req: Request, res: Response) => {
         sessions.set(sessionId, { conn, sftp, lastUsed: Date.now() });
         if (!hasResponded) {
           hasResponded = true;
-          res.json({ sessionId });
+          const signature = crypto.createHmac('sha256', serverSecret).update(sessionId).digest('hex');
+          const sessionToken = `${sessionId}.${signature}`;
+          res.json({ sessionId: sessionToken });
         }
       });
     }).on('error', (err: SshConnectionError) => {
@@ -101,8 +132,14 @@ app.post('/api/ssh/connect', (req: Request, res: Response) => {
 });
 
 app.get('/api/ssh/ls', (req: Request, res: Response) => {
-  const { sessionId, path: dirPath = '.' } = req.query;
-  const session = sessions.get(sessionId as string);
+  const { sessionId: token, path: dirPath = '.' } = req.query;
+  const sessionId = verifySessionToken(token);
+
+  if (!sessionId) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
+  const session = sessions.get(sessionId);
 
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
@@ -130,8 +167,14 @@ app.get('/api/ssh/ls', (req: Request, res: Response) => {
 });
 
 app.get('/api/ssh/read', (req: Request, res: Response) => {
-  const { sessionId, path: filePath } = req.query;
-  const session = sessions.get(sessionId as string);
+  const { sessionId: token, path: filePath } = req.query;
+  const sessionId = verifySessionToken(token);
+
+  if (!sessionId) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
+  const session = sessions.get(sessionId);
 
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
@@ -155,7 +198,13 @@ app.get('/api/ssh/read', (req: Request, res: Response) => {
 });
 
 app.post('/api/ssh/write', (req: Request, res: Response) => {
-  const { sessionId, path: filePath, content } = req.body;
+  const { sessionId: token, path: filePath, content } = req.body;
+  const sessionId = verifySessionToken(token);
+
+  if (!sessionId) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
   const session = sessions.get(sessionId);
 
   if (!session) {
@@ -176,12 +225,15 @@ app.post('/api/ssh/write', (req: Request, res: Response) => {
 });
 
 app.post('/api/ssh/disconnect', (req: Request, res: Response) => {
-  const { sessionId } = req.body;
-  const session = sessions.get(sessionId);
+  const { sessionId: token } = req.body;
+  const sessionId = verifySessionToken(token);
 
-  if (session) {
-    session.conn.end();
-    sessions.delete(sessionId);
+  if (sessionId) {
+    const session = sessions.get(sessionId);
+    if (session) {
+      session.conn.end();
+      sessions.delete(sessionId);
+    }
   }
   res.json({ success: true });
 });

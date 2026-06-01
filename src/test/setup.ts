@@ -1,6 +1,6 @@
 // Test setup file for Vitest
 import '@testing-library/jest-dom';
-import { beforeAll, afterAll, afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -24,8 +24,8 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock File System Access API
-globalThis.showOpenFilePicker = vi.fn();
-globalThis.showSaveFilePicker = vi.fn();
+(globalThis as any).showOpenFilePicker = vi.fn();
+(globalThis as any).showSaveFilePicker = vi.fn();
 
 // Global test timeout
 const TEST_TIMEOUT = 10000;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { sshService } from '../services/SshService';
-import type { RemoteEntry } from '../services/SshService';
+import type { RemoteEntry } from '../types';
 import { X, Folder, FileText, ChevronLeft, HardDrive, Search, Save } from 'lucide-react';
 
 interface RemoteFileBrowserProps {

@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
-import { useEditorStore, useUIStore, useConnectionStore } from './store';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { useUIStore, useConnectionStore, useEditorStore } from './store';
 import { sshService } from './services/SshService';
-import { useFile } from './hooks/useFile';
 import { useKeyboardShortcuts, useClickOutside } from './hooks';
 import { Header } from './components/Header';
 import { EditorArea } from './components/EditorArea';
@@ -15,25 +14,10 @@ import './styles/App.css';
 
 const App: React.FC = () => {
   // Refs
-  const saveDropdownRef = useRef<HTMLDivElement>(null);
-  const openDropdownRef = useRef<HTMLDivElement>(null);
+  const saveDropdownRef = useRef<HTMLDivElement>(null!);
+  const openDropdownRef = useRef<HTMLDivElement>(null!);
 
-  // Get state from stores
-  const {
-    content,
-    fileName,
-    filePath,
-    fileMode,
-    isDirty,
-    isSaving,
-    isLoading,
-    autosaveEnabled,
-    lastExternalUpdate,
-    setContent,
-    setIsDirty,
-    setAutosaveEnabled,
-    resetEditor,
-  } = useEditorStore();
+
 
   const {
     theme,
@@ -50,6 +34,7 @@ const App: React.FC = () => {
     toggleTheme,
     toggleSourceMode,
     toggleMenu,
+    setIsMenuOpen,
     setShowHelp,
     setShowSshConnect,
     setShowRemoteBrowser,
@@ -72,8 +57,18 @@ const App: React.FC = () => {
   const isConnected = sshService.isConnected();
   const connectedMachine = sshService.getConnectedMachineName();
 
-  // Get file operations from useFile hook
+  // Get state and operations from useEditorStore
   const {
+    content,
+    fileName,
+    filePath,
+    fileMode,
+    isDirty,
+    isSaving,
+    isLoading,
+    autosaveEnabled,
+    lastExternalUpdate,
+    setAutosaveEnabled,
     openFile,
     openRemoteFile,
     saveRemoteFileAs,
@@ -82,41 +77,54 @@ const App: React.FC = () => {
     newFile: newFileHook,
     needsConfirmation,
     updateContent,
-  } = useFile();
+    initializeEditor,
+  } = useEditorStore();
 
-  // Sync useFile state with store
+  // Initialize editor state from IndexedDB/localStorage on mount
   useEffect(() => {
-    if (content !== useEditorStore.getState().content) {
-      setContent(content);
+    initializeEditor();
+  }, [initializeEditor]);
+
+  // Debounced auto-save
+  useEffect(() => {
+    const isReadyToAutoSave =
+      autosaveEnabled &&
+      isDirty &&
+      (fileMode === 'remote' ? filePath !== null : true) &&
+      !isSaving;
+
+    if (isReadyToAutoSave) {
+      const timer = setTimeout(() => {
+        saveFile(true);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [content, setContent]);
+  }, [autosaveEnabled, isDirty, fileMode, filePath, isSaving, saveFile]);
+
+
 
   // Handler functions - defined before hooks that use them
   const handleNewFile = useCallback(() => {
     if (needsConfirmation()) {
-      setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and start a new file?");
       setConfirmAction(() => () => {
         newFileHook();
-        resetEditor();
         setConfirmAction(null, '');
-      });
+      }, "You have unsaved content in this untitled document. Are you sure you want to discard it and start a new file?");
     } else {
       newFileHook();
-      resetEditor();
     }
     setShowHelp(false);
     setShowSshConnect(false);
     setShowRemoteBrowser(false);
     setIsMenuOpen(false);
-  }, [needsConfirmation, newFileHook, resetEditor, setConfirmAction, setShowHelp, setShowSshConnect, setShowRemoteBrowser, setIsMenuOpen]);
+  }, [needsConfirmation, newFileHook, setConfirmAction, setShowHelp, setShowSshConnect, setShowRemoteBrowser, setIsMenuOpen]);
 
   const handleOpenFileLocal = useCallback(() => {
     if (needsConfirmation()) {
-      setConfirmMessage("You have unsaved content in this untitled document. Are you sure you want to discard it and open a different file?");
       setConfirmAction(() => () => {
         openFile();
         setConfirmAction(null, '');
-      });
+      }, "You have unsaved content in this untitled document. Are you sure you want to discard it and open a different file?");
     } else {
       openFile();
     }
@@ -184,20 +192,18 @@ const App: React.FC = () => {
     disconnectStore();
     if (fileMode === 'remote') {
       newFileHook();
-      resetEditor();
     }
     setIsMenuOpen(false);
-  }, [disconnectStore, fileMode, newFileHook, resetEditor, setIsMenuOpen]);
+  }, [disconnectStore, fileMode, newFileHook, setIsMenuOpen]);
 
   const handleRemoteFileAction = useCallback(async (path: string) => {
     if (remoteBrowserMode === 'open') {
       if (needsConfirmation()) {
-        setConfirmMessage("You have unsaved content. Are you sure you want to discard it and open a remote file?");
         setConfirmAction(() => () => {
           openRemoteFile(path);
           setShowRemoteBrowser(false);
           setConfirmAction(null, '');
-        });
+        }, "You have unsaved content. Are you sure you want to discard it and open a remote file?");
       } else {
         await openRemoteFile(path);
         setShowRemoteBrowser(false);
@@ -211,11 +217,7 @@ const App: React.FC = () => {
 
   const handleContentChange = useCallback((newContent: string) => {
     updateContent(newContent);
-    setContent(newContent);
-    if (newContent !== useEditorStore.getState().content) {
-      setIsDirty(true);
-    }
-  }, [updateContent, setContent, setIsDirty]);
+  }, [updateContent]);
 
   const handleOpen = useCallback(() => {
     if (fileMode === 'remote') {
@@ -228,7 +230,7 @@ const App: React.FC = () => {
 
   // Click outside handler for dropdowns
   useClickOutside(
-    [saveDropdownRef, openDropdownRef],
+    [saveDropdownRef as React.RefObject<HTMLElement>, openDropdownRef as React.RefObject<HTMLElement>],
     () => {
       setShowSaveDropdown(false);
       setShowOpenDropdown(false);

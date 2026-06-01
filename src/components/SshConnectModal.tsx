@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { SshConfig } from '../services/SshService';
+import type { SshConfig } from '../types';
 import { X, Server, User, Lock, Key, Save, Trash2, ChevronDown, Clock } from 'lucide-react';
 
 interface SshConnectModalProps {
@@ -24,7 +24,7 @@ export const SshConnectModal: React.FC<SshConnectModalProps> = ({ onConnect, onC
   const [savedMachines, setSavedMachines] = useState<SshConfig[]>([]);
   const [showSavedList, setShowSavedList] = useState(false);
   const [connectionTime, setConnectionTime] = useState(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<any>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(SAVED_MACHINES_KEY);
