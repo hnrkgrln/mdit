@@ -342,7 +342,6 @@ const App: React.FC = () => {
           isLoading={isLoading}
           isSourceMode={isSourceMode}
           content={content}
-          fileMode={fileMode}
           lastExternalUpdate={lastExternalUpdate}
           onChange={handleContentChange}
         />

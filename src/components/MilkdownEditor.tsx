@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Crepe } from '@milkdown/crepe';
+import { replaceAll } from '@milkdown/utils';
 
 // Import Crepe styles
 import '@milkdown/crepe/theme/common/style.css';
@@ -11,7 +12,7 @@ interface MilkdownEditorProps {
   forceSync: number;
 }
 
-export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange, forceSync: _forceSync }) => {
+export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChange, forceSync }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const lastMarkdownRef = useRef(content);
@@ -93,6 +94,13 @@ export const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content, onChang
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (crepeRef.current && crepeRef.current.editor) {
+      crepeRef.current.editor.action(replaceAll(content));
+      lastMarkdownRef.current = content;
+    }
+  }, [forceSync]);
 
   return (
     <div className="milkdown-wrapper">
