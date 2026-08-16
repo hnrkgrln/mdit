@@ -11,7 +11,7 @@ const serverSecret = crypto.randomBytes(32).toString('hex');
 const app: Express = express();
 const port = process.env.PORT || 3002;
 
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3002'] }));
 app.use(bodyParser.json());
 
 // Request logger for debugging
@@ -19,6 +19,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
+
+// Security: Sanitize path to prevent directory traversal
+const sanitizePath = (p: string | undefined): string | undefined => {
+  if (!p) return p;
+  return p.replace(/\.\.\//g, '').replace(/\.\./g, '').replace(/\x00/g, '');
+};
 
 // API Routes - Define these BEFORE static serving to avoid 404s
 app.get('/api/health', (req: Request, res: Response) => {
@@ -146,7 +152,8 @@ app.get('/api/ssh/ls', (req: Request, res: Response) => {
   }
 
   session.lastUsed = Date.now();
-  session.sftp.readdir(dirPath as string, (err: Error | null, list: any[]) => {
+  const safePath = sanitizePath(dirPath as string) as string;
+  session.sftp.readdir(safePath, (err: Error | null, list: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to list directory: ' + err.message });
     }
@@ -185,7 +192,8 @@ app.get('/api/ssh/read', (req: Request, res: Response) => {
   }
 
   session.lastUsed = Date.now();
-  const stream = session.sftp.createReadStream(filePath as string);
+  const safePath = sanitizePath(filePath as string) as string;
+  const stream = session.sftp.createReadStream(safePath);
   let content = '';
 
   stream.on('data', (chunk: Buffer) => {
@@ -216,7 +224,8 @@ app.post('/api/ssh/write', (req: Request, res: Response) => {
   }
 
   session.lastUsed = Date.now();
-  session.sftp.writeFile(filePath, content, (err: Error | null) => {
+  const safePath = sanitizePath(filePath as string) as string;
+  session.sftp.writeFile(safePath, content, (err: Error | null) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to write file: ' + err.message });
     }

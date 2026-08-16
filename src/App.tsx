@@ -19,66 +19,59 @@ const App: React.FC = () => {
 
 
 
-  const {
-    theme,
-    isSourceMode,
-    isMenuOpen,
-    showHelp,
-    showSshConnect,
-    showRemoteBrowser,
-    showOpenDropdown,
-    showSaveDropdown,
-    remoteBrowserMode,
-    confirmAction,
-    confirmMessage,
-    toggleTheme,
-    toggleSourceMode,
-    toggleMenu,
-    setIsMenuOpen,
-    setShowHelp,
-    setShowSshConnect,
-    setShowRemoteBrowser,
-    setShowOpenDropdown,
-    setShowSaveDropdown,
-    setRemoteBrowserMode,
-    setConfirmAction,
-    closeAllModals,
-  } = useUIStore();
+  const theme = useUIStore(state => state.theme);
+  const isSourceMode = useUIStore(state => state.isSourceMode);
+  const isMenuOpen = useUIStore(state => state.isMenuOpen);
+  const showHelp = useUIStore(state => state.showHelp);
+  const showSshConnect = useUIStore(state => state.showSshConnect);
+  const showRemoteBrowser = useUIStore(state => state.showRemoteBrowser);
+  const showOpenDropdown = useUIStore(state => state.showOpenDropdown);
+  const showSaveDropdown = useUIStore(state => state.showSaveDropdown);
+  const remoteBrowserMode = useUIStore(state => state.remoteBrowserMode);
+  const confirmAction = useUIStore(state => state.confirmAction);
+  const confirmMessage = useUIStore(state => state.confirmMessage);
+  const toggleTheme = useUIStore(state => state.toggleTheme);
+  const toggleSourceMode = useUIStore(state => state.toggleSourceMode);
+  const toggleMenu = useUIStore(state => state.toggleMenu);
+  const setIsMenuOpen = useUIStore(state => state.setIsMenuOpen);
+  const setShowHelp = useUIStore(state => state.setShowHelp);
+  const setShowSshConnect = useUIStore(state => state.setShowSshConnect);
+  const setShowRemoteBrowser = useUIStore(state => state.setShowRemoteBrowser);
+  const setShowOpenDropdown = useUIStore(state => state.setShowOpenDropdown);
+  const setShowSaveDropdown = useUIStore(state => state.setShowSaveDropdown);
+  const setRemoteBrowserMode = useUIStore(state => state.setRemoteBrowserMode);
+  const setConfirmAction = useUIStore(state => state.setConfirmAction);
+  const closeAllModals = useUIStore(state => state.closeAllModals);
 
-  const {
-    sessionId,
-    connectedMachineName,
-    setSessionId,
-    setConnectedMachineName,
-    disconnect: disconnectStore,
-  } = useConnectionStore();
+  const sessionId = useConnectionStore(state => state.sessionId);
+  const connectedMachineName = useConnectionStore(state => state.connectedMachineName);
+  const setSessionId = useConnectionStore(state => state.setSessionId);
+  const setConnectedMachineName = useConnectionStore(state => state.setConnectedMachineName);
+  const disconnectStore = useConnectionStore(state => state.disconnect);
+
+  const content = useEditorStore(state => state.content);
+  const fileName = useEditorStore(state => state.fileName);
+  const filePath = useEditorStore(state => state.filePath);
+  const fileMode = useEditorStore(state => state.fileMode);
+  const isDirty = useEditorStore(state => state.isDirty);
+  const isSaving = useEditorStore(state => state.isSaving);
+  const isLoading = useEditorStore(state => state.isLoading);
+  const autosaveEnabled = useEditorStore(state => state.autosaveEnabled);
+  const lastExternalUpdate = useEditorStore(state => state.lastExternalUpdate);
+  const setAutosaveEnabled = useEditorStore(state => state.setAutosaveEnabled);
+  const openFile = useEditorStore(state => state.openFile);
+  const openRemoteFile = useEditorStore(state => state.openRemoteFile);
+  const saveRemoteFileAs = useEditorStore(state => state.saveRemoteFileAs);
+  const saveFile = useEditorStore(state => state.saveFile);
+  const saveFileAs = useEditorStore(state => state.saveFileAs);
+  const newFileHook = useEditorStore(state => state.newFile);
+  const needsConfirmation = useEditorStore(state => state.needsConfirmation);
+  const updateContent = useEditorStore(state => state.updateContent);
+  const initializeEditor = useEditorStore(state => state.initializeEditor);
 
   // Sync store with sshService
   const isConnected = sshService.isConnected();
   const connectedMachine = sshService.getConnectedMachineName();
-
-  // Get state and operations from useEditorStore
-  const {
-    content,
-    fileName,
-    filePath,
-    fileMode,
-    isDirty,
-    isSaving,
-    isLoading,
-    autosaveEnabled,
-    lastExternalUpdate,
-    setAutosaveEnabled,
-    openFile,
-    openRemoteFile,
-    saveRemoteFileAs,
-    saveFile,
-    saveFileAs,
-    newFile: newFileHook,
-    needsConfirmation,
-    updateContent,
-    initializeEditor,
-  } = useEditorStore();
 
   // Initialize editor state from IndexedDB/localStorage on mount
   useEffect(() => {

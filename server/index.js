@@ -8,7 +8,7 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3002;
 
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3002'] }));
 app.use(bodyParser.json());
 
 // Request logger for debugging
@@ -16,6 +16,12 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
+
+// Security: Sanitize path to prevent directory traversal
+const sanitizePath = (p) => {
+  if (!p) return p;
+  return p.replace(/\.\.\//g, '').replace(/\.\./g, '').replace(/\x00/g, '');
+};
 
 // API Routes - Define these BEFORE static serving to avoid 404s
 app.get('/api/health', (req, res) => {
@@ -85,12 +91,14 @@ app.post('/api/ssh/connect', (req, res) => {
 });
 
 app.get('/api/ssh/ls', (req, res) => {
-  const { sessionId, path = '.' } = req.query;
+  let { sessionId, path = '.' } = req.query;
   const session = sessions.get(sessionId);
 
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
+  
+  path = sanitizePath(path);
 
   session.lastUsed = Date.now();
   session.sftp.readdir(path, (err, list) => {
@@ -114,7 +122,7 @@ app.get('/api/ssh/ls', (req, res) => {
 });
 
 app.get('/api/ssh/read', (req, res) => {
-  const { sessionId, path } = req.query;
+  let { sessionId, path } = req.query;
   const session = sessions.get(sessionId);
 
   if (!session) {
@@ -124,6 +132,8 @@ app.get('/api/ssh/read', (req, res) => {
   if (!path) {
     return res.status(400).json({ error: 'Path is required' });
   }
+  
+  path = sanitizePath(path);
 
   session.lastUsed = Date.now();
   const stream = session.sftp.createReadStream(path);
@@ -139,7 +149,7 @@ app.get('/api/ssh/read', (req, res) => {
 });
 
 app.post('/api/ssh/write', (req, res) => {
-  const { sessionId, path, content } = req.body;
+  let { sessionId, path, content } = req.body;
   const session = sessions.get(sessionId);
 
   if (!session) {
@@ -149,6 +159,8 @@ app.post('/api/ssh/write', (req, res) => {
   if (!path) {
     return res.status(400).json({ error: 'Path is required' });
   }
+  
+  path = sanitizePath(path);
 
   session.lastUsed = Date.now();
   session.sftp.writeFile(path, content, (err) => {
